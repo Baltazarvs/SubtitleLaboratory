@@ -15,25 +15,27 @@ using namespace SubtitleLaboratory;
  *		AND DON'T INSERT ANY TITLES INTO A LIST OR SUBTITLE GLOBAL DEQUE (subtitles_deque)!!!
 */
 
-#define IDC_LV_EDITOR_LIST		20001
-#define IDC_STATUS_BAR			20002
-#define IDC_TOOL_BAR			20003
+#define IDC_LV_EDITOR_LIST				20001
+#define IDC_STATUS_BAR					20002
+#define IDC_TOOL_BAR					20003
 
 #define IDC_EDIT_SUBTITLE_TEXT			31000
 #define IDC_EDIT_TIMER_BEGIN(hhmmssms)	32000 + hhmmssms
 #define IDC_EDIT_TIMER_END(hhmmssms)	33000 + hhmmssms
 
-#define ID_HH				100
-#define ID_MM				200
-#define ID_SS				300
-#define ID_MS				400
+#define ID_HH							100
+#define ID_MM							200
+#define ID_SS							300
+#define ID_MS							400
 
-#define IDC_BUTTON_ADD_TITLE		34011
+#define IDC_BUTTON_ADD_TITLE			34011
 
-#define HHMMSS_MAX_LEN			2
-#define MS_MAX_LEN			3
-#define IDC_STATIC_REVIEW_TITLE		24201
+#define HHMMSS_MAX_LEN					2
+#define MS_MAX_LEN						3
+#define IDC_STATIC_REVIEW_TITLE			24201
 #define IDC_STATIC_ADD_CONTROL_PANEL    24202
+
+#define IDC_CHECKBOX_SYNC_BEGINNING		34012
 
 typedef struct
 {
@@ -74,6 +76,7 @@ SubtitleLaboratory::SubRipTimer CalculateTime(int criteria, SubtitleLaboratory::
 void p_FixSizeForReviewList(std::size_t& for_index, int& cx);
 void p_FixSizeMainList(std::size_t& for_index, int& cx);
 
+// ============================ Runtime variables... ===============================
 std::deque<SubtitleLaboratory::SubtitleContainer> subtitles_deque;
 std::wstring current_opened_subtitle_path = NO_FILE_PATH;
 static bool bSubtitleFileOpened = false;
@@ -89,6 +92,8 @@ static int Runtime_ErrorBoxTitle = 0;
 static int MainList_Width = 0;
 static int MainList_Height = 0;
 
+static bool bRuntime_SyncBeginning = true;
+// ============================ Control handle variables... =========================
 static HWND w_MainTitleList = nullptr;
 static HWND w_StatusBar = nullptr;
 static HWND w_ToolBar = nullptr;
@@ -100,9 +105,7 @@ static HWND w_TitleTimerEndHH = nullptr, w_TitleTimerEndMM = nullptr, w_TitleTim
 static HWND w_ButtonAddTitle = nullptr;
 
 static HWND w_SubtitleReview = nullptr;
-
-
-// Used to store all subtitles at once. Used for shifting all subtitles if needed.
+static HWND w_CheckBoxSyncBeginTime = nullptr;
 
 Application::WClass::WClass()
 {
@@ -347,7 +350,8 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 			}
 			case ID_EDIT_DELETESUBTITLE:
 			{
-				::DeleteSubtitleItem(w_MainTitleList, LV_GetSelectedItemIndex(w_MainTitleList));
+				signed int selected_item_index = LV_GetSelectedItemIndex(w_MainTitleList);
+				::DeleteSubtitleItem(w_MainTitleList, selected_item_index);
 				break;
 			}
 		}
@@ -890,6 +894,20 @@ LRESULT __stdcall Application::SubclassProc_AddTitlePanel(HWND w_Handle, UINT Ms
 		{
 			switch (LOWORD(wParam))
 			{
+				case IDC_CHECKBOX_SYNC_BEGINNING:
+				{
+					if (::bRuntime_SyncBeginning)
+					{
+						bRuntime_SyncBeginning = false;
+						Button_SetCheck(w_CheckBoxSyncBeginTime, BST_UNCHECKED);
+					}
+					else
+					{
+						bRuntime_SyncBeginning = true;
+						Button_SetCheck(w_CheckBoxSyncBeginTime, BST_CHECKED);
+					}
+					break;
+				}
 				case IDC_BUTTON_ADD_TITLE:
 				{
 					SubtitleLaboratory::SubtitleContainer obj_Container;
@@ -967,13 +985,11 @@ LRESULT __stdcall Application::SubclassProc_AddTitlePanel(HWND w_Handle, UINT Ms
 					// Convert time strings to unique SubRipTimer object
 					SubtitleLaboratory::SubRipTimer begin_timer = obj_Parser.ConvertTimerStringToTimerObject(b_hh_buff, b_mm_buff, b_ss_buff, b_ms_buff);
 					SubtitleLaboratory::SubRipTimer end_timer = obj_Parser.ConvertTimerStringToTimerObject(e_hh_buff, e_mm_buff, e_ss_buff, e_ms_buff);
-
+					
 					// Release unneeded left buffers.
-					delete[] b_hh_buff; delete[] b_mm_buff; delete[] b_ss_buff;
-					delete[] e_hh_buff; delete[] e_mm_buff; delete[] e_ss_buff;
 
 					// Subtitle index number
-					unsigned int subtitle_index = 0u;
+					static unsigned int subtitle_index = 0u;
 					::subtitles_deque.size();
 
 					// Subtitle Text
@@ -993,10 +1009,46 @@ LRESULT __stdcall Application::SubclassProc_AddTitlePanel(HWND w_Handle, UINT Ms
 					delete[] c_buffer;
 
 					if (!::AddTitle(w_MainTitleList, obj_Container))
-					{
-						MessageBoxA(w_Handle, "Cannot add subtitle to list!", "Error!", MB_OK | MB_ICONERROR);
 						return -1;
+
+					subtitle_index += 1;
+
+					int tpes[] = { ID_HH, ID_MM, ID_SS, ID_MS };
+					for (int i = 0; i < (sizeof(tpes) / sizeof(tpes[0])) * 2; ++i)
+					{
+						SetWindowText(GetDlgItem(w_Handle, IDC_EDIT_TIMER_BEGIN(tpes[i])), nullptr);
+						SetWindowText(GetDlgItem(w_Handle, IDC_EDIT_TIMER_END(tpes[i])), nullptr);
 					}
+
+					if (::bRuntime_SyncBeginning)
+					{
+						const wchar_t* buffers_ptr[] = { e_hh_buff, e_mm_buff, e_ss_buff, e_ms_buff };
+						for (int i = 0; i < sizeof(buffers_ptr) / sizeof(buffers_ptr[0]); ++i)
+						{
+							if (i < sizeof(buffers_ptr) / sizeof(buffers_ptr[0]) - 1)
+								SetWindowText(GetDlgItem(w_Handle, IDC_EDIT_TIMER_BEGIN(tpes[i])), buffers_ptr[i]);
+							else
+							{
+								// TODO: This will break rule of timing if MS is 999. It mustn't be 1000
+								// Must use system to sync time (1000 ms will add one second to HH)
+
+								std::wstringstream woss;
+								int converted_val = 0;
+
+								woss << e_ms_buff;
+								woss >> converted_val;
+								converted_val += 1;
+
+								woss.clear(); 
+								woss.str(std::wstring());
+								woss << converted_val;
+								SetWindowText(GetDlgItem(w_Handle, IDC_EDIT_TIMER_BEGIN(tpes[i])), woss.str().c_str());
+							}
+						}
+					}
+
+					delete[] b_hh_buff; delete[] b_mm_buff; delete[] b_ss_buff;
+					delete[] e_hh_buff; delete[] e_mm_buff; delete[] e_ss_buff;
 					break;
 				}
 			}
@@ -1246,13 +1298,21 @@ void InitUI(HWND w_Handle, HINSTANCE w_Inst)
 		w_AddTitlePanel, reinterpret_cast<HMENU>(IDC_BUTTON_ADD_TITLE), w_Inst, nullptr
 	);
 
+	w_CheckBoxSyncBeginTime = CreateWindow(
+		WC_BUTTON, L"Sync Beginning",
+		WS_VISIBLE | WS_CHILD | BS_AUTOCHECKBOX,
+		210, 10, 100, 20,
+		w_AddTitlePanel, ID(IDC_CHECKBOX_SYNC_BEGINNING), w_Inst, nullptr
+	);
+	Button_SetCheck(w_CheckBoxSyncBeginTime, BST_CHECKED);
+
 	HICON hAddIcon = LoadIconA(GetModuleHandleA(nullptr), MAKEINTRESOURCEA(IDI_ICON_ADD));
 	SendMessage(w_ButtonAddTitle, BM_SETIMAGE, static_cast<WPARAM>(IMAGE_ICON), reinterpret_cast<LPARAM>(hAddIcon));
 
 	w_SubtitleReview = ::InitializeSubtitleReviewControl(w_Handle);
 
-	const std::size_t controls_num = 4ull;
-	HWND w_Controls[controls_num] = { w_SubtitleText, w_ButtonAddTitle, w_BeginStatic, w_EndStatic };
+	const std::size_t controls_num = 5ull;
+	HWND w_Controls[controls_num] = { w_SubtitleText, w_ButtonAddTitle, w_BeginStatic, w_EndStatic, w_CheckBoxSyncBeginTime };
 	for (std::size_t i = 0ull; i < controls_num; ++i)
 		SendMessage(w_Controls[i], WM_SETFONT, reinterpret_cast<WPARAM>((HFONT)GetStockObject(DEFAULT_GUI_FONT)), 1u);
 	return;
@@ -1553,7 +1613,7 @@ bool AddTitle(HWND w_lvHandle, SubtitleLaboratory::SubtitleContainer cnt)
 {
 	if (!::IsTimerBeginEndValid(cnt.time_begin, cnt.time_end))
 	{
-		MessageBoxA(GetParent(w_lvHandle), "Invalid begin timer specified", "Error!", MB_OK | MB_ICONERROR);
+		MessageBoxA(GetParent(w_lvHandle), "Invalid begin timer specified", "Error!", MB_OK);
 		return false;
 	}
 
@@ -1874,22 +1934,23 @@ signed int LV_GetSelectedItemCount(HWND w_lvHandle)
 
 void DeleteSubtitleItem(HWND w_lvHandle, int index)
 {
-	// TODO: MAKE THIS WORK.
-
 	int itr_index = 0;
 	for (std::deque<SubtitleLaboratory::SubtitleContainer>::iterator itr = subtitles_deque.begin(); itr != subtitles_deque.end(); ++itr)
 	{
 		if (LV_GetSelectedItemCount(w_MainTitleList) < 1)
 		{
-			MessageBoxA(0, "0 items selected.", "Delete Item", MB_OK | MB_ICONINFORMATION);
+			MessageBoxA(GetParent(w_lvHandle), "0 items selected.", "Delete Item", MB_OK | MB_ICONINFORMATION);
 			break;
 		}
 		else
 		{
 			if (itr_index == LV_GetSelectedItemIndex(w_MainTitleList))
 			{
+				auto a = ::subtitles_deque.size();
 				::subtitles_deque.erase(itr);
+				auto b = ::subtitles_deque.size();
 				ListView_DeleteItem(w_MainTitleList, itr_index);
+				return;
 			}
 		}
 		++itr_index;
