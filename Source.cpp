@@ -5,7 +5,7 @@ int __stdcall WinMain(HINSTANCE _In_ hInstance, HINSTANCE _In_ hPrevInstance, LP
 {
 	static wchar_t open_with_buff[255];
 	std::vector<std::wstring> ArgsVec;
-	static std::wstring open_with_path = std::wstring();
+	std::wstring open_with_path;
 
 	int argc = 0;
 	wchar_t** argv = CommandLineToArgvW(GetCommandLineW(), &argc);

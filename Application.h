@@ -47,8 +47,8 @@ private:
 	};
 
 public:
-	Application(HWND w_Parent, const char* Caption, WTransform w_Transform, std::wstring open_with_path);
-	Application(HWND w_Parent, const char* Caption, int X, int Y, int Width, int Height, std::wstring open_with_path);
+	Application(HWND w_Parent, const char* Caption, WTransform w_Transform, std::wstring& open_with_path);
+	Application(HWND w_Parent, const char* Caption, int X, int Y, int Width, int Height, std::wstring& open_with_path);
 	~Application();
 
 	static LRESULT __stdcall WndProcSetup(HWND w_Handle, UINT Msg, WPARAM wParam, LPARAM lParam);
@@ -79,7 +79,7 @@ private:
 	HWND w_Handle;
 	WTransform w_Transform;
 	GDIPlusRenderer gp_Renderer;
-	std::wstring sopen_with_path;
+	static std::wstring sopen_with_path;
 };
 
 #endif

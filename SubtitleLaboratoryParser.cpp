@@ -114,7 +114,6 @@ std::deque<SubtitleLaboratory::SubtitleContainer> SubtitleLaboratory::SubRipPars
 		MessageBoxA(nullptr, "Cannot open SRT file!", "Error!", MB_OK | MB_ICONERROR);
 		return std::deque<SubtitleLaboratory::SubtitleContainer>();
 	}
-
 	return this->parsed_titles_deque;
 }
 

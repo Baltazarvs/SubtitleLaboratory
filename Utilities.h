@@ -16,7 +16,7 @@
 #include <string>
 #include <sstream>
 #include <fstream>
-#include <windowsx.h>
+#include <algorithm>
 
 #pragma warning(disable: 4996)
 #pragma comment(lib, "comctl32.lib")

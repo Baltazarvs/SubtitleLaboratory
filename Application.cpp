@@ -12,7 +12,10 @@ using namespace SubtitleLaboratory;
  * AFTER EVERYTIME USER OPENS NEW SUBTITLE ON 'Open Subtitle' MENU, CLEAR WHOLE MAIN LIST AND IMPORT PARSED DATA FROM CURRENT OPEN FILE.
  *		USE bSubtitleFileOpened TO UNDERGO THIS OPERATION. IT WILL CHECK IF FILE IS ALREADY OPEN OR NOT, AND IF IT IS, IT WILL UNDERGO THIS OPERATION!
  * FIX THE OPERATION, WHEN USER OPENS SUBTITLE WITH INVALID TIMERS OR DATA, WHEN ERROR MESSAGE BOX APPEARS, CANCEL WHOLE OPENING OPERATION,
- *		AND DON'T INSERT ANY TITLES INTO A LIST OR SUBTITLE GLOBAL DEQUE (subtitles_deque)!!!
+ *		AND DON'T INSERT ANY TITLES INTO A LIST OR SUBTITLE GLOBAL DEQUE (subtitles_deque)!!!\
+ * 
+ * INPUTING ONLY ONE NUMBER INSIDE HHMMSSMS EDITS IN ADD SUBTITLE WILL NOT ADD ZERO BEFORE SPECIFIED NUMBER. FIX IT.
+ * E.G.    Input: 5, Output: 5, Expected: 05. Implement this system.
 */
 
 #define IDC_LV_EDITOR_LIST				20001
@@ -44,6 +47,7 @@ typedef struct
 } WDimension;
 
 Application::WClass Application::WClass::WCInstance;
+std::wstring Application::sopen_with_path;
 SubtitleLaboratory::SubRipParser obj_Parser;
 
 void InitUI(HWND w_Handle, HINSTANCE w_Inst);
@@ -72,6 +76,8 @@ signed int LV_GetSelectedItemIndex(HWND w_lvHandle);
 signed int LV_GetSelectedItemCount(HWND w_lvHandle);
 void DeleteSubtitleItem(HWND w_lvHandle, int index);
 SubtitleLaboratory::SubRipTimer CalculateTime(int criteria, SubtitleLaboratory::SubRipTimer first_time, SubtitleLaboratory::SubRipTimer second_time);
+std::size_t FindCaseSensitive(std::wstring tstr, const wchar_t* wfind, std::size_t pos = 0ull);
+void FindAllCaseSensitiveOccurrences(std::wstring tstr, const wchar_t* wfind, std::vector<std::size_t>& pos_vec);
 
 void p_FixSizeForReviewList(std::size_t& for_index, int& cx);
 void p_FixSizeMainList(std::size_t& for_index, int& cx);
@@ -144,10 +150,10 @@ const char* Application::WClass::GetWClassName() noexcept
 	return WCInstance.WClassName;
 }
 
-Application::Application(HWND w_Parent, const char* Caption, WTransform w_Transform, std::wstring open_with_path)
-	: w_Transform(w_Transform), sopen_with_path(open_with_path)
+Application::Application(HWND w_Parent, const char* Caption, WTransform w_Transform, std::wstring& open_with_path)
+	: w_Transform(w_Transform)
 {
-	MessageBoxW(0, open_with_path.c_str(), 0, 0);
+	Application::sopen_with_path = open_with_path;
 	w_Handle = CreateWindowExA(
 		WS_EX_CLIENTEDGE,
 		Application::WClass::GetWClassName(),
@@ -160,7 +166,7 @@ Application::Application(HWND w_Parent, const char* Caption, WTransform w_Transf
 	ShowWindow(this->GetHandle(), SW_SHOWMAXIMIZED);
 }
 
-Application::Application(HWND w_Parent, const char* Caption, int X, int Y, int Width, int Height, std::wstring open_with_path)
+Application::Application(HWND w_Parent, const char* Caption, int X, int Y, int Width, int Height, std::wstring& open_with_path)
 	: Application(w_Parent, Caption, { X, Y, Width, Height }, open_with_path)
 { }
 
@@ -206,7 +212,8 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 			reinterpret_cast<SUBCLASSPROC>(&Application::SubclassProc_AddTitlePanel),
 			0u, 0u
 		);
-		if (this->sopen_with_path.empty())
+
+		if (!Application::sopen_with_path.empty())
 			OpenSubtitleFile(w_Handle, CRITERIA_FILE_OPEN_WITH);
 		break;
 	}
@@ -1104,7 +1111,6 @@ void Application::OpenSubtitleFile(HWND w_Handle, int criteria)
 			path = this->sopen_with_path;
 		else
 			path = ::SaveOpenFilePathW(w_Handle, L"Open Subtitle", L"SubRip File (*.srt)\0*.srt\0", CRITERIA_OPEN);
-
 		std::deque<SubtitleLaboratory::SubtitleContainer> parsed_titles = std::deque<SubtitleLaboratory::SubtitleContainer>();
 
 		// If file is already opened...
@@ -1631,7 +1637,7 @@ bool AddTitle(HWND w_lvHandle, SubtitleLaboratory::SubtitleContainer cnt)
 		PostQuitMessage(-1);
 	}
 
-	::subtitles_deque.push_front(cnt);
+	::subtitles_deque.push_back(cnt);
 	return true;
 }
 
@@ -2036,4 +2042,24 @@ SubtitleLaboratory::SubRipTimer CalculateTime(int criteria, SubtitleLaboratory::
 		break;
 	}
 	return obj_timer;
+}
+
+std::size_t FindCaseSensitive(std::wstring tstr, const wchar_t* wfind, std::size_t pos )
+{
+	std::wstring wsfind(wfind);
+	std::transform(tstr.begin(), tstr.end(), tstr.begin(), ::tolower);
+	std::transform(wsfind.begin(), wsfind.end(), wsfind.begin(), ::tolower);
+	return tstr.find(wfind, pos);
+}
+
+void FindAllCaseSensitiveOccurrences(std::wstring tstr, const wchar_t* wfind, std::vector<std::size_t>& pos_vec)
+{
+	std::wstring wsfind(wfind);
+	std::size_t pos = tstr.find(wsfind);
+	while (pos != std::wstring::npos)
+	{
+		pos_vec.push_back(pos);
+		pos = FindCaseSensitive(tstr, wfind, pos + wsfind.size());
+	}
+	return;
 }
