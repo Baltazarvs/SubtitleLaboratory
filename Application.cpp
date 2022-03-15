@@ -99,6 +99,8 @@ static int MainList_Width = 0;
 static int MainList_Height = 0;
 
 static bool bRuntime_SyncBeginning = true;
+static bool bRuntime_OpenWith = false;
+
 // ============================ Control handle variables... =========================
 static HWND w_MainTitleList = nullptr;
 static HWND w_StatusBar = nullptr;
@@ -214,7 +216,10 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 		);
 
 		if (!Application::sopen_with_path.empty())
+		{
+			bRuntime_OpenWith = true;
 			OpenSubtitleFile(w_Handle, CRITERIA_FILE_OPEN_WITH);
+		}
 		break;
 	}
 	case WM_COMMAND:
@@ -730,6 +735,10 @@ LRESULT __stdcall Application::DlgProc_ReviewSubtitle(HWND w_Dlg, UINT Msg, WPAR
 	{
 	case WM_INITDIALOG:
 	{
+		// If user change mind and wants to cancel opening of Subtitle Laboratory...
+		if (!::bRuntime_OpenWith)
+			ShowWindow(GetDlgItem(w_Dlg, IDCANCEL), SW_HIDE);
+
 		// Initialize font for subtitle review edit control.
 		HFONT hFont = CreateFont(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, L"Arial");
 		SendMessage(w_ReviewEdit, WM_SETFONT, reinterpret_cast<WPARAM>(hFont), 1u);
@@ -800,6 +809,8 @@ LRESULT __stdcall Application::DlgProc_ReviewSubtitle(HWND w_Dlg, UINT Msg, WPAR
 	case WM_COMMAND:
 		if (LOWORD(wParam) == IDOK)
 			EndDialog(w_Dlg, IDOK);
+		if (LOWORD(wParam) == IDCANCEL)
+			PostQuitMessage(0);
 		break;
 	}
 	return 0;
