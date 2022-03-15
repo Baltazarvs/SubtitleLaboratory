@@ -1,0 +1,245 @@
+// Microsoft Visual C++ generated resource script.
+//
+#include "resource.h"
+
+#define APSTUDIO_READONLY_SYMBOLS
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 2 resource.
+//
+#include "winres.h"
+
+/////////////////////////////////////////////////////////////////////////////
+#undef APSTUDIO_READONLY_SYMBOLS
+
+/////////////////////////////////////////////////////////////////////////////
+// English (United States) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
+LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+#pragma code_page(1252)
+
+#ifdef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+
+1 TEXTINCLUDE 
+BEGIN
+    "resource.h\0"
+END
+
+2 TEXTINCLUDE 
+BEGIN
+    "#include ""winres.h""\r\n"
+    "\0"
+END
+
+3 TEXTINCLUDE 
+BEGIN
+    "\r\n"
+    "\0"
+END
+
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Menu
+//
+
+IDR_MENUBAR MENU
+BEGIN
+    POPUP "File"
+    BEGIN
+        MENUITEM "New Project",                 ID_FILE_NEWPROJECT
+        MENUITEM "Open Project",                ID_FILE_OPENPROJECT
+        MENUITEM "Save Project",                ID_FILE_SAVEPROJECT
+        MENUITEM SEPARATOR
+        MENUITEM "New Subtitle",                ID_FILE_NEWSUBTITLE
+        MENUITEM "Open Subtitle",               ID_FILE_OPENSUBTITLE
+        MENUITEM "Save Subtitle",               ID_FILE_SAVESUBTITLE
+        MENUITEM SEPARATOR
+        MENUITEM "Exit",                        ID_FILE_EXIT
+    END
+    POPUP "Edit"
+    BEGIN
+        MENUITEM "Cut",                         ID_EDIT_CUT
+        MENUITEM "Copy",                        ID_EDIT_COPY
+        MENUITEM "Paste",                       ID_EDIT_PASTE
+        MENUITEM SEPARATOR
+        MENUITEM "Add Subtitle",                ID_EDIT_ADDSUBTITLE
+        MENUITEM "Edit Subtitle",               ID_EDIT_EDITSUBTITLE
+        MENUITEM "Delete Subtitle",             ID_EDIT_DELETESUBTITLE
+        MENUITEM SEPARATOR
+        MENUITEM "Find Subtitle",               ID_EDIT_FINDSUBTITLE
+        MENUITEM "Go to title",                 ID_EDIT_GOTOTITLE
+    END
+    POPUP "View"
+    BEGIN
+        POPUP "Show"
+        BEGIN
+            MENUITEM "Show Tool Bar",               ID_VIEW_SHOW_TOOLBAR, CHECKED
+            MENUITEM "Show Status Bar",             ID_VIEW_SHOW_STATUSBAR, CHECKED
+            MENUITEM "Show Titles List",            ID_VIEW_SHOW_TITLE_LIST, CHECKED
+            MENUITEM "Show Add Panel",              ID_VIEW_SHOWADDPANEL, CHECKED
+            MENUITEM "Show Subtitle Review",        ID_VIEW_SHOWSUBTITLEREVIEW, CHECKED
+        END
+    END
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog
+//
+
+IDD_ADDSUBTITLE DIALOGEX 0, 0, 195, 146
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Add Subtitle"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    DEFPUSHBUTTON   "OK",IDOK,35,125,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,111,125,50,14
+    EDITTEXT        IDC_EDIT_SUBTITLETEXT,15,74,166,37,ES_AUTOHSCROLL
+    EDITTEXT        IDC_EDIT_HH_BEGIN,33,16,32,14,ES_AUTOHSCROLL
+    EDITTEXT        IDC_EDIT_HH_END,33,31,32,14,ES_AUTOHSCROLL
+    EDITTEXT        IDC_EDIT_MM_BEGIN,66,16,32,14,ES_AUTOHSCROLL
+    EDITTEXT        IDC_EDIT_MM_END,66,31,32,14,ES_AUTOHSCROLL
+    EDITTEXT        IDC_EDIT_SS_BEGIN,99,16,32,14,ES_AUTOHSCROLL
+    EDITTEXT        IDC_EDIT_SS_END,99,31,32,14,ES_AUTOHSCROLL
+    EDITTEXT        IDC_EDIT_MS_BEGIN,132,16,32,14,ES_AUTOHSCROLL
+    EDITTEXT        IDC_EDIT_MS_END,132,31,32,14,ES_AUTOHSCROLL
+    LTEXT           "     HH            MM            SS            MS",IDC_STATIC_HHMMSSMS,34,48,130,8
+    LTEXT           "Begin",IDC_STATIC,12,19,17,8
+    LTEXT           "End",IDC_STATIC,12,32,16,8
+    GROUPBOX        "Timer",IDC_STATIC,7,6,181,54
+    GROUPBOX        "Text",IDC_STATIC,7,62,181,54
+END
+
+IDD_REVIEWSRT DIALOGEX 0, 0, 393, 275
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "srt_path_filename"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    DEFPUSHBUTTON   "OK",IDOK,336,254,50,14
+    EDITTEXT        IDC_EDIT_SRT_REVIEW,7,7,247,238,ES_MULTILINE | ES_AUTOVSCROLL | ES_AUTOHSCROLL | ES_READONLY | WS_VSCROLL
+    CONTROL         "",IDC_LIST_SRT_REVIEW_INFO,"SysListView32",LVS_REPORT | LVS_ALIGNLEFT | WS_BORDER | WS_TABSTOP,256,7,130,238
+END
+
+IDD_GOTOTITLE DIALOGEX 0, 0, 155, 28
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Go to title..."
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    DEFPUSHBUTTON   "OK",IDOK,99,7,50,14
+    EDITTEXT        IDC_EDIT_GOTO_INDEX,7,7,92,14,ES_AUTOHSCROLL | ES_NUMBER
+END
+
+IDD_ERRORREPORT DIALOGEX 0, 0, 273, 107
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Dialog"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    DEFPUSHBUTTON   "OK",IDOK,208,80,58,20
+    CONTROL         "",IDC_LIST_ERRORS_INFO,"SysListView32",LVS_REPORT | LVS_ALIGNLEFT | WS_BORDER | WS_TABSTOP,7,7,259,71
+    LTEXT           "Static",IDC_STATIC,7,80,196,20
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// DESIGNINFO
+//
+
+#ifdef APSTUDIO_INVOKED
+GUIDELINES DESIGNINFO
+BEGIN
+    IDD_ADDSUBTITLE, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 188
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 139
+    END
+
+    IDD_REVIEWSRT, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 386
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 268
+    END
+
+    IDD_GOTOTITLE, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 148
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 21
+    END
+
+    IDD_ERRORREPORT, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 266
+        VERTGUIDE, 135
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 100
+    END
+END
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// AFX_DIALOG_LAYOUT
+//
+
+IDD_ADDSUBTITLE AFX_DIALOG_LAYOUT
+BEGIN
+    0
+END
+
+IDD_REVIEWSRT AFX_DIALOG_LAYOUT
+BEGIN
+    0
+END
+
+IDD_GOTOTITLE AFX_DIALOG_LAYOUT
+BEGIN
+    0
+END
+
+IDD_ERRORREPORT AFX_DIALOG_LAYOUT
+BEGIN
+    0
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Icon
+//
+
+// Icon with lowest ID value placed first to ensure application icon
+// remains consistent on all systems.
+IDI_ICON_ADD            ICON                    "Source\\Icons\\Icon_Add.ico"
+
+#endif    // English (United States) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+
+#ifndef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 3 resource.
+//
+
+
+/////////////////////////////////////////////////////////////////////////////
+#endif    // not APSTUDIO_INVOKED
+
