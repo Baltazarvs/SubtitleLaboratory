@@ -43,7 +43,7 @@
 #define IDC_STATIC_HHMMSSMS             1026
 #define IDC_LIST_SRT_REVIEW_INFO        1027
 #define IDC_LIST_ERRORS_INFO            1029
-#define IDCANCEL_AND_CLOSE              1031
+#define IDC_BUTTON1                     1032
 #define ID_FILE_NEW                     40001
 #define ID_FILE_OPEN                    40002
 #define ID_FILE_SAVE                    40003
@@ -91,7 +91,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        121
 #define _APS_NEXT_COMMAND_VALUE         40041
-#define _APS_NEXT_CONTROL_VALUE         1032
+#define _APS_NEXT_CONTROL_VALUE         1033
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

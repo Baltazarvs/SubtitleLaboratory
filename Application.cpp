@@ -879,6 +879,8 @@ LRESULT __stdcall Application::DlgProc_GotoSubtitle(HWND w_Dlg, UINT Msg, WPARAM
 				ListView_SetItemState(w_MainTitleList, index, LVIS_FOCUSED | LVIS_SELECTED, LVIS_FOCUSED | LVIS_SELECTED);
 				EndDialog(w_Dlg, 0);
 			}
+			if (LOWORD(wParam) == IDCANCEL)
+				EndDialog(w_Dlg, IDCANCEL);
 			break;
 		}
 	}
@@ -1309,11 +1311,21 @@ void InitUI(HWND w_Handle, HINSTANCE w_Inst)
 	);
 
 	w_ButtonAddTitle = CreateWindow(
-		WC_BUTTON, L"+",
-		WS_VISIBLE | WS_CHILD | BS_ICON,
-		246, 42, 40, 40,
+		WC_BUTTON, L"  Add",
+		WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
+		246, 42, 100, 40,
 		w_AddTitlePanel, reinterpret_cast<HMENU>(IDC_BUTTON_ADD_TITLE), w_Inst, nullptr
 	);
+
+	HICON hAddIcon = (HICON)LoadImageA(
+		GetModuleHandleA(nullptr),
+		MAKEINTRESOURCEA(IDI_ICON_ADD),
+		IMAGE_ICON,
+		24, 24,
+		LR_DEFAULTCOLOR
+	);
+
+	SendMessage(w_ButtonAddTitle, BM_SETIMAGE, static_cast<WPARAM>(IMAGE_ICON), reinterpret_cast<LPARAM>(hAddIcon));
 
 	w_CheckBoxSyncBeginTime = CreateWindow(
 		WC_BUTTON, L"Sync Beginning",
@@ -1322,10 +1334,7 @@ void InitUI(HWND w_Handle, HINSTANCE w_Inst)
 		w_AddTitlePanel, ID(IDC_CHECKBOX_SYNC_BEGINNING), w_Inst, nullptr
 	);
 	Button_SetCheck(w_CheckBoxSyncBeginTime, BST_CHECKED);
-
-	HICON hAddIcon = LoadIconA(GetModuleHandleA(nullptr), MAKEINTRESOURCEA(IDI_ICON_ADD));
-	SendMessage(w_ButtonAddTitle, BM_SETIMAGE, static_cast<WPARAM>(IMAGE_ICON), reinterpret_cast<LPARAM>(hAddIcon));
-
+	
 	w_SubtitleReview = ::InitializeSubtitleReviewControl(w_Handle);
 
 	const std::size_t controls_num = 5ull;
