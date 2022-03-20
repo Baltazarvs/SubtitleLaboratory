@@ -14,6 +14,10 @@
 
 namespace SubtitleLaboratory
 {
+	struct hour { };
+	struct minute { };
+	struct second { };
+	struct millisecond { };
 
 	typedef struct
 	{
@@ -66,7 +70,45 @@ namespace SubtitleLaboratory
 		std::size_t GetTitlesNumber() const { return this->parsed_titles_deque.size(); }
 		SubtitleLaboratory::SubRipTimer ConvertTimerStringToTimerObject(const wchar_t* rHH, const wchar_t* rMM, const wchar_t* rSS, const wchar_t* rMS);
 		SubtitleLaboratory::SubRipTimer ValidateTimer(SubtitleLaboratory::SubRipTimer timer_obj);
+	
+		template <typename RetValue, typename UnitTypeStruct>
+		RetValue ConvertToUnit(SubtitleLaboratory::SubRipTimer time);
 	};
+
+	template <typename RetValue, typename UnitTypeStruct>
+	RetValue SubtitleLaboratory::SubRipParser::ConvertToUnit(SubtitleLaboratory::SubRipTimer time)
+	{
+		RetValue result = 0u;
+		if (std::is_same_v<UnitTypeStruct, SubtitleLaboratory::millisecond>)
+		{
+			result += (RetValue)time.HH * (3600 * 1000);
+			result += (RetValue)time.MM * (60 * 1000);
+			result += (RetValue)time.SS * 1000;
+			result += (RetValue)time.MS;
+		}
+		else if (std::is_same_v<UnitTypeStruct, SubtitleLaboratory::second>)
+		{
+			result += (RetValue)time.HH * 3600;
+			result += (RetValue)time.MM * 60;
+			result += (RetValue)time.SS;
+			result += (RetValue)time.MS / 1000;
+		}
+		else if (std::is_same_v<UnitTypeStruct, SubtitleLaboratory::minute>)
+		{
+			result += (RetValue)time.HH * 60;
+			result += (RetValue)time.MM;
+			result += (RetValue)time.SS / 60;
+			result += (RetValue)time.MS / (60 * 1000);
+		}
+		else if (std::is_same_v<UnitTypeStruct, SubtitleLaboratory::hour>)
+		{
+			result += (RetValue)time.HH;
+			result += (RetValue)time.MM / 60;
+			result += (RetValue)time.SS / 3600;
+			result += (RetValue)time.MS / (3600 * 1000);
+		}
+		return result;
+	}
 
 	inline void AddTimeToTitle(SubRipTimer& rTimer, int seconds_to_add)
 	{

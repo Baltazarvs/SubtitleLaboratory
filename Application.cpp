@@ -101,6 +101,9 @@ static int MainList_Height = 0;
 static bool bRuntime_SyncBeginning = true;
 static bool bRuntime_OpenWith = false;
 
+static std::wstring Runtime_LastSubtitleError = std::wstring();
+static unsigned int Runtime_SubtitleIndex = 1u;
+
 // ============================ Control handle variables... =========================
 static HWND w_MainTitleList = nullptr;
 static HWND w_StatusBar = nullptr;
@@ -956,17 +959,6 @@ LRESULT __stdcall Application::SubclassProc_AddTitlePanel(HWND w_Handle, UINT Ms
 
 					int subtitle_text_len = SendMessage(GetDlgItem(w_Handle, IDC_EDIT_SUBTITLE_TEXT), WM_GETTEXTLENGTH, 0u, 0u) + 1;
 
-					if ((b_mm_len - 1 > 2) || (b_ss_len - 1 > 2) || (b_ms_len - 1 > 3))
-					{
-						MessageBoxA(w_Handle, "Invalid specified value for begin time!", "Error!", MB_OK | MB_ICONERROR);
-						return -1;
-					}
-					else if ((e_mm_len - 1 > 2) || (e_ss_len - 1 > 2) || (e_ms_len - 1 > 3))
-					{
-						MessageBoxA(w_Handle, "Invalid specified value for end time!", "Error!", MB_OK | MB_ICONERROR);
-						return -1;
-					}
-
 					// Begin Timer
 					wchar_t* b_hh_buff = new wchar_t[b_hh_len];
 					if (!b_hh_buff) { MessageBoxA(w_Handle, "Cannot allocate buffer for START HOUR!", "Error!", MB_OK | MB_ICONERROR); return -1; }
@@ -1006,10 +998,7 @@ LRESULT __stdcall Application::SubclassProc_AddTitlePanel(HWND w_Handle, UINT Ms
 					SubtitleLaboratory::SubRipTimer begin_timer = obj_Parser.ConvertTimerStringToTimerObject(b_hh_buff, b_mm_buff, b_ss_buff, b_ms_buff);
 					SubtitleLaboratory::SubRipTimer end_timer = obj_Parser.ConvertTimerStringToTimerObject(e_hh_buff, e_mm_buff, e_ss_buff, e_ms_buff);
 					
-					// Release unneeded left buffers.
-
 					// Subtitle index number
-					static unsigned int subtitle_index = 0u;
 					::subtitles_deque.size();
 
 					// Subtitle Text
@@ -1022,7 +1011,7 @@ LRESULT __stdcall Application::SubclassProc_AddTitlePanel(HWND w_Handle, UINT Ms
 
 					GetWindowText(w_SubtitleText, c_buffer, subtitle_text_len);
 
-					obj_Container.number = subtitle_index;
+					obj_Container.number = ::Runtime_SubtitleIndex;
 					obj_Container.time_begin = begin_timer;
 					obj_Container.time_end = end_timer;
 					obj_Container.lpstrText = c_buffer;
@@ -1031,7 +1020,7 @@ LRESULT __stdcall Application::SubclassProc_AddTitlePanel(HWND w_Handle, UINT Ms
 					if (!::AddTitle(w_MainTitleList, obj_Container))
 						return -1;
 
-					subtitle_index += 1;
+					::Runtime_SubtitleIndex += 1;
 
 					int tpes[] = { ID_HH, ID_MM, ID_SS, ID_MS };
 					for (int i = 0; i < (sizeof(tpes) / sizeof(tpes[0])) * 2; ++i)
@@ -1067,8 +1056,11 @@ LRESULT __stdcall Application::SubclassProc_AddTitlePanel(HWND w_Handle, UINT Ms
 						}
 					}
 
+					// Release buffers.
 					delete[] b_hh_buff; delete[] b_mm_buff; delete[] b_ss_buff;
 					delete[] e_hh_buff; delete[] e_mm_buff; delete[] e_ss_buff;
+					
+					SetWindowText(w_SubtitleText, nullptr);
 					break;
 				}
 			}
@@ -1139,6 +1131,7 @@ void Application::OpenSubtitleFile(HWND w_Handle, int criteria)
 			{
 				std::ostringstream oss;
 				oss << "Invalid timer specified at subtitle [" << (i + 1) << ']' << std::endl;
+				oss << ::Runtime_LastSubtitleError.c_str() << std::endl;
 				oss << "Operation Canceled." << std::endl;
 				MessageBoxA(w_Handle, oss.str().c_str(), "Parsing Error!", MB_OK | MB_ICONERROR);
 				bErr = true;
@@ -1639,7 +1632,7 @@ bool AddTitle(HWND w_lvHandle, SubtitleLaboratory::SubtitleContainer cnt)
 {
 	if (!::IsTimerBeginEndValid(cnt.time_begin, cnt.time_end))
 	{
-		MessageBoxA(GetParent(w_lvHandle), "Invalid begin timer specified", "Error!", MB_OK);
+		MessageBoxW(GetParent(w_lvHandle), ::Runtime_LastSubtitleError.c_str(), L"Invalid begin timer specified", MB_OK | MB_ICONINFORMATION);
 		return false;
 	}
 
@@ -1717,11 +1710,28 @@ bool IsTimerValid(SubtitleLaboratory::SubRipTimer timer)
 
 bool IsTimerBeginEndValid(SubtitleLaboratory::SubRipTimer begin, SubtitleLaboratory::SubRipTimer end)
 {
-	// TODO: ADD ALL CASES TO PREVENT WRONG COMBINATIONS OF TIMERS!
+	// Convert all timers to smallest unit to be able to compare their value
+	double begin_time_ms = obj_Parser.ConvertToUnit<double, SubtitleLaboratory::millisecond>(begin);
+	double end_time_ms = obj_Parser.ConvertToUnit<double, SubtitleLaboratory::millisecond>(end);
 
 	// Check if values are valid per SubRipTimer
 	if (!IsTimerValid(begin) || !IsTimerValid(end))
+	{
+		::Runtime_LastSubtitleError = L"Timers are invalid.";
 		return false;
+	}
+	if (begin_time_ms > end_time_ms)
+	{
+		::Runtime_LastSubtitleError = L"Start time is greater than end time.";
+		return false;
+	}
+	if (begin_time_ms == end_time_ms)
+	{
+		::Runtime_LastSubtitleError = L"Timers are equal.";
+		return false;
+	}
+
+	// Those are unused because conditions above are better and simpler.
 	// Check if HOUR values are valid for both SubRipTimer-s (dependent)
 	if (begin.HH > end.HH)
 		return false;
