@@ -18,6 +18,8 @@ using namespace SubtitleLaboratory;
  * E.G.    Input: 5, Output: 5, Expected: 05. Implement this system.
 */
 
+#define DLG_DISPLAY_ERROR(par) DialogBox(nullptr, MAKEINTRESOURCE(IDD_ERRORREPORT), par, (DLGPROC)&Application::DlgProc_ErrorReport);
+
 #define IDC_LV_EDITOR_LIST				20001
 #define IDC_STATUS_BAR					20002
 #define IDC_TOOL_BAR					20003
@@ -81,6 +83,7 @@ void FindAllCaseSensitiveOccurrences(std::wstring tstr, const wchar_t* wfind, st
 
 void p_FixSizeForReviewList(std::size_t& for_index, int& cx);
 void p_FixSizeMainList(std::size_t& for_index, int& cx);
+void p_FixSizeForErrorList(std::size_t& for_index, int& cx);
 
 // ============================ Runtime variables... ===============================
 std::deque<SubtitleLaboratory::SubtitleContainer> subtitles_deque;
@@ -369,6 +372,16 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 				::DeleteSubtitleItem(w_MainTitleList, selected_item_index);
 				break;
 			}
+			case ID_HELP_ABOUT:
+			{
+				DialogBox(
+					Application::WClass::GetInstance(),
+					MAKEINTRESOURCE(IDD_ABOUT),
+					w_Handle,
+					reinterpret_cast<DLGPROC>(&Application::DlgProc_About)
+				);
+				break;
+			}
 		}
 		break;
 	}
@@ -422,14 +435,14 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 		RECT addRect;
 		GetClientRect(w_AddTitlePanel, &addRect);
 
-		GetWindowRect(w_StatusBar, &sbRect);
+		GetClientRect(w_StatusBar, &sbRect);
 		sbHeight = sbRect.bottom - sbRect.top;
 		lvHeight = cwRect.bottom - sbHeight - tbHeight;
 
 		MoveWindow(w_AddTitlePanel, 0, lvHeight - 56, cwRect.right - 400, 100, TRUE);
 
-		GetWindowRect(w_MainTitleList, &lvRect);
-		GetWindowRect(w_AddTitlePanel, &addRect);
+		GetClientRect(w_MainTitleList, &lvRect);
+		GetClientRect(w_AddTitlePanel, &addRect);
 
 		MoveWindow(w_MainTitleList, 0, tbHeight, cwRect.right, lvHeight - 100, TRUE);
 
@@ -440,10 +453,10 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 		SendMessage(w_SubtitleReview, WM_SIZE, 0u, 0u);
 		MoveWindow(
 			w_SubtitleReview,
-			addRect.right - 2,		// TODO: -2 should be removed if control overlaps the subtitle add panel.
-			tbHeight + lvHeight - (addRect.bottom - addRect.top),
+			(addRect.right - addRect.left) + 13,		// TODO: -2 should be removed if control overlaps the subtitle add panel.
+			tbHeight + lvHeight - (addRect.bottom - addRect.top) - 15,
 			wRect_Width - (addRect.right - addRect.left),
-			wRect_Height - lvHeight + sbHeight + 10,
+			wRect_Height - lvHeight + sbHeight + 12,
 			TRUE
 		);
 
@@ -892,15 +905,54 @@ LRESULT __stdcall Application::DlgProc_GotoSubtitle(HWND w_Dlg, UINT Msg, WPARAM
 
 LRESULT __stdcall Application::DlgProc_ErrorReport(HWND w_Dlg, UINT Msg, WPARAM wParam, LPARAM lParam)
 {
+	HBRUSH dlgbr = CreateSolidBrush(GetSysColor(COLOR_WINDOW));
+
 	switch (Msg)
 	{
 		case WM_INITDIALOG:
 		{
+			std::vector<const wchar_t*> cols{ L"Line", L"Title", L"Error Info" };
+			LV_InsertColumns(GetDlgItem(w_Dlg, IDC_LIST_ERRORS_INFO), cols, &p_FixSizeForErrorList);
+			SetWindowText(GetDlgItem(w_Dlg, IDC_STATIC_ERROR_REPORT), ::Runtime_LastSubtitleError.c_str());
 			break;
 		}
 		case WM_COMMAND:
 			if (LOWORD(wParam) == IDOK)
 				EndDialog(w_Dlg, IDOK);
+			break;
+		case WM_CTLCOLORSTATIC:
+		{
+			if (reinterpret_cast<HWND>(lParam) == GetDlgItem(w_Dlg, IDC_STATIC_ERROR_REPORT))
+			{
+				LOGBRUSH lbr;
+				GetObject(dlgbr, sizeof(HBRUSH), &lbr);
+
+				SetBkColor(reinterpret_cast<HDC>(wParam), lbr.lbColor);
+				SetTextColor(reinterpret_cast<HDC>(wParam), RGB(0xFF, 0x00, 0x00));
+			}
+			return (LRESULT)dlgbr;
+		}
+		case WM_CLOSE:
+			EndDialog(w_Dlg, 0);
+			break;
+	}
+	return 0;
+}
+
+LRESULT __stdcall Application::DlgProc_About(HWND w_Dlg, UINT Msg, WPARAM wParam, LPARAM lParam)
+{
+	switch (Msg)
+	{
+		case WM_INITDIALOG:
+		{
+			wchar_t about_buffer[255];
+			LoadString(GetModuleHandle(nullptr), IDS_STRING_ABOUT, about_buffer, 255);
+			SetWindowText(GetDlgItem(w_Dlg, IDC_STATIC_ABOUT), about_buffer);
+			break;
+		}
+		case WM_COMMAND:
+			if (LOWORD(wParam) == IDOK)
+				EndDialog(w_Dlg, 0);
 			break;
 		case WM_CLOSE:
 			EndDialog(w_Dlg, 0);
@@ -958,6 +1010,11 @@ LRESULT __stdcall Application::SubclassProc_AddTitlePanel(HWND w_Handle, UINT Ms
 					}
 
 					int subtitle_text_len = SendMessage(GetDlgItem(w_Handle, IDC_EDIT_SUBTITLE_TEXT), WM_GETTEXTLENGTH, 0u, 0u) + 1;
+					if (subtitle_text_len - 1 < 1)
+					{
+						MessageBox(w_Handle, L"Enter subtitle text.", L"Subtitle requires text.", MB_OK);
+						return 0;
+					}
 
 					// Begin Timer
 					wchar_t* b_hh_buff = new wchar_t[b_hh_len];
@@ -1124,16 +1181,19 @@ void Application::OpenSubtitleFile(HWND w_Handle, int criteria)
 		else
 			return;
 
-		parsed_titles = obj_Parser.ParseSubtitleFromFile(path.c_str());
+		if (path.length() > 1)
+			parsed_titles = obj_Parser.ParseSubtitleFromFile(path.c_str());
+		::Runtime_SubtitleIndex = parsed_titles.size() + 1ull;
+
 		for (std::size_t i = 0ull; i < parsed_titles.size(); ++i)
 		{
 			if (!IsTimerBeginEndValid(parsed_titles[i].time_begin, parsed_titles[i].time_end))
 			{
-				std::ostringstream oss;
-				oss << "Invalid timer specified at subtitle [" << (i + 1) << ']' << std::endl;
-				oss << ::Runtime_LastSubtitleError.c_str() << std::endl;
-				oss << "Operation Canceled." << std::endl;
-				MessageBoxA(w_Handle, oss.str().c_str(), "Parsing Error!", MB_OK | MB_ICONERROR);
+				std::wostringstream oss;
+				oss << L"Invalid timer specified at subtitle [" << i + 1 << ']' << std::endl;
+				oss << L"Reason: " << ::Runtime_LastSubtitleError << std::endl;
+				oss << L"Operation Canceled." << std::endl;
+				MessageBoxW(w_Handle, oss.str().c_str(), L"Parsing Error!", MB_OK | MB_ICONERROR);
 				bErr = true;
 			}
 			else
@@ -1142,7 +1202,7 @@ void Application::OpenSubtitleFile(HWND w_Handle, int criteria)
 					::AddTitle(w_MainTitleList, parsed_titles[i]);
 			}
 		}
-		if (!bErr)
+		if (!bErr && path.length() > 0)
 		{
 			DialogBox(
 				Application::WClass::GetInstance(),
@@ -1150,6 +1210,7 @@ void Application::OpenSubtitleFile(HWND w_Handle, int criteria)
 				w_Handle,
 				reinterpret_cast<DLGPROC>(&Application::DlgProc_ReviewSubtitle)
 			);
+			SendMessage(w_StatusBar, SB_SETTEXTW, 1u, reinterpret_cast<LPARAM>(path.c_str()));
 		}
 	}
 	catch (std::exception& e)
@@ -1440,7 +1501,8 @@ bool LV_InsertColumns(HWND w_lvHandle, std::vector<const wchar_t*> Columns, void
 		lvc.mask = LVCF_TEXT | LVCF_WIDTH | LVCF_SUBITEM;
 		lvc.iSubItem = i;
 
-		ptr_fix_col_size(i, lvc.cx);
+		if(ptr_fix_col_size != nullptr)
+			ptr_fix_col_size(i, lvc.cx);
 
 		lvc.pszText = const_cast<wchar_t*>(Columns[i]);
 		if (SendMessageA(w_lvHandle, LVM_INSERTCOLUMN, static_cast<WPARAM>(i), reinterpret_cast<LPARAM>(&lvc)) == -1)
@@ -1632,7 +1694,7 @@ bool AddTitle(HWND w_lvHandle, SubtitleLaboratory::SubtitleContainer cnt)
 {
 	if (!::IsTimerBeginEndValid(cnt.time_begin, cnt.time_end))
 	{
-		MessageBoxW(GetParent(w_lvHandle), ::Runtime_LastSubtitleError.c_str(), L"Invalid begin timer specified", MB_OK | MB_ICONINFORMATION);
+		DLG_DISPLAY_ERROR(GetParent(w_lvHandle))
 		return false;
 	}
 
@@ -1774,6 +1836,12 @@ void p_FixSizeMainList(std::size_t& for_index, int& cx)
 		cx = 150; // For title begin and end
 	else
 		cx = 610; // For title text
+}
+
+void p_FixSizeForErrorList(std::size_t& for_index, int& cx)
+{
+	cx = 100;
+	return;
 }
 
 void AttachZerosIfSingleDigit(std::wostringstream& woss, SubtitleLaboratory::SubRipTimer& ref_timer)

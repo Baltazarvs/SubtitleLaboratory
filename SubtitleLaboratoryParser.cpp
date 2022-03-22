@@ -105,7 +105,7 @@ std::deque<SubtitleLaboratory::SubtitleContainer> SubtitleLaboratory::SubRipPars
 			title_container_obj.time_begin = begin_time_obj;
 			title_container_obj.time_end = end_time_obj;
 			title_container_obj.lpstrText = woss_title_text.str().c_str();
-			this->parsed_titles_deque.push_front(title_container_obj);
+			this->parsed_titles_deque.push_back(title_container_obj);
 		}
 		file.close();
 	}
@@ -223,4 +223,17 @@ SubtitleLaboratory::SubRipTimer SubtitleLaboratory::SubRipParser::ValidateTimer(
 		}
 	}
 	return obj_valid_timer;
+}
+
+std::wstring SubtitleLaboratory::SubRipParser::SingleDigitToZeroDigit(unsigned int digit)
+{
+	std::wstring res_num = std::wstring();
+	std::wostringstream woss;
+	woss << digit;
+	if (digit < 10)
+	{
+		woss << L'0' << digit;
+		res_num = woss.str();
+	}
+	return res_num;
 }

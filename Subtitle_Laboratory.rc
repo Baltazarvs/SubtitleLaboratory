@@ -88,6 +88,13 @@ BEGIN
             MENUITEM "Show Subtitle Review",        ID_VIEW_SHOWSUBTITLEREVIEW, CHECKED
         END
     END
+    POPUP "Help"
+    BEGIN
+        MENUITEM "Patch Notes",                 ID_HELP_PATCHNOTES
+        MENUITEM "How to Use",                  ID_HELP_HOWTOUSE40042
+        MENUITEM SEPARATOR
+        MENUITEM "About",                       ID_HELP_ABOUT
+    END
 END
 
 
@@ -147,7 +154,17 @@ FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
     DEFPUSHBUTTON   "OK",IDOK,208,80,58,20
     CONTROL         "",IDC_LIST_ERRORS_INFO,"SysListView32",LVS_REPORT | LVS_ALIGNLEFT | WS_BORDER | WS_TABSTOP,7,7,259,71
-    LTEXT           "Static",IDC_STATIC,7,80,196,20
+    LTEXT           "Static",IDC_STATIC_ERROR_REPORT,7,80,196,20
+END
+
+IDD_ABOUT DIALOGEX 0, 0, 205, 72
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "About"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    DEFPUSHBUTTON   "OK",IDOK,78,49,50,17
+    CTEXT           "",IDC_STATIC_ABOUT,11,17,180,27
+    LTEXT           "Created 2021 - 2022 Baltazarus",IDC_STATIC,48,7,123,8
 END
 
 
@@ -191,6 +208,14 @@ BEGIN
         TOPMARGIN, 7
         BOTTOMMARGIN, 100
     END
+
+    IDD_ABOUT, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 198
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 65
+    END
 END
 #endif    // APSTUDIO_INVOKED
 
@@ -220,6 +245,11 @@ BEGIN
     0
 END
 
+IDD_ABOUT AFX_DIALOG_LAYOUT
+BEGIN
+    0
+END
+
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -229,6 +259,56 @@ END
 // Icon with lowest ID value placed first to ensure application icon
 // remains consistent on all systems.
 IDI_ICON_ADD            ICON                    "Source\\Icons\\Icon_Add.ico"
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Version
+//
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION 1,0,0,1
+ PRODUCTVERSION 1,0,0,1
+ FILEFLAGSMASK 0x3fL
+#ifdef _DEBUG
+ FILEFLAGS 0x1L
+#else
+ FILEFLAGS 0x0L
+#endif
+ FILEOS 0x40004L
+ FILETYPE 0x1L
+ FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904b0"
+        BEGIN
+            VALUE "CompanyName", "Baltazarus"
+            VALUE "FileDescription", "Simple subtitle files editor. Created by one person."
+            VALUE "FileVersion", "1.0.0.1"
+            VALUE "InternalName", "Subtitle_Laboratory.exe"
+            VALUE "LegalCopyright", "Copyright (C) 2021 - 2022 Baltazarus"
+            VALUE "OriginalFilename", "Subtitle.exe"
+            VALUE "ProductName", "Subtitle Laboratory"
+            VALUE "ProductVersion", "1.0.0.1"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// String Table
+//
+
+STRINGTABLE
+BEGIN
+    IDS_STRING_ABOUT        "Subtitle Laboratory is a simple subtitle editor for SubRip and other subtitle formats. This program is still under\ndevelopment and is expected to be efficient."
+END
 
 #endif    // English (United States) resources
 /////////////////////////////////////////////////////////////////////////////

@@ -13,6 +13,8 @@
 #define IDD_GOTOTITLE                   117
 #define IDD_DIALOG2                     119
 #define IDD_ERRORREPORT                 119
+#define IDS_STRING_ABOUT                121
+#define IDD_ABOUT                       122
 #define IDC_EDIT_PROJECT_NAME           1001
 #define IDC_EDIT_PROJECT_AUTHOR         1002
 #define IDC_EDIT_PROJECT_DESCRIPTION    1003
@@ -43,7 +45,8 @@
 #define IDC_STATIC_HHMMSSMS             1026
 #define IDC_LIST_SRT_REVIEW_INFO        1027
 #define IDC_LIST_ERRORS_INFO            1029
-#define IDC_BUTTON1                     1032
+#define IDC_STATIC_ABOUT                1033
+#define IDC_STATIC_ERROR_REPORT         1034
 #define ID_FILE_NEW                     40001
 #define ID_FILE_OPEN                    40002
 #define ID_FILE_SAVE                    40003
@@ -84,14 +87,17 @@
 #define ID_SHOW_SHOWADDPANEL            40038
 #define ID_SHOW_SHOWSUBTITLEREVIEW      40039
 #define ID_EDIT_GOTOTITLE               40040
+#define ID_HELP_ABOUT40041              40041
+#define ID_HELP_HOWTOUSE40042           40042
+#define ID_HELP_PATCHNOTES              40043
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        121
-#define _APS_NEXT_COMMAND_VALUE         40041
-#define _APS_NEXT_CONTROL_VALUE         1033
+#define _APS_NEXT_RESOURCE_VALUE        124
+#define _APS_NEXT_COMMAND_VALUE         40044
+#define _APS_NEXT_CONTROL_VALUE         1035
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

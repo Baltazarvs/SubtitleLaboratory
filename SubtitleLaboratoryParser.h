@@ -70,7 +70,8 @@ namespace SubtitleLaboratory
 		std::size_t GetTitlesNumber() const { return this->parsed_titles_deque.size(); }
 		SubtitleLaboratory::SubRipTimer ConvertTimerStringToTimerObject(const wchar_t* rHH, const wchar_t* rMM, const wchar_t* rSS, const wchar_t* rMS);
 		SubtitleLaboratory::SubRipTimer ValidateTimer(SubtitleLaboratory::SubRipTimer timer_obj);
-	
+		std::wstring SingleDigitToZeroDigit(unsigned int digit);
+
 		template <typename RetValue, typename UnitTypeStruct>
 		RetValue ConvertToUnit(SubtitleLaboratory::SubRipTimer time);
 	};

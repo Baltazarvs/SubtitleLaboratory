@@ -62,9 +62,10 @@ public:
 	static LRESULT __stdcall DlgProc_ReviewSubtitle(HWND w_Dlg, UINT Msg, WPARAM wParam, LPARAM lParam);
 	static LRESULT __stdcall DlgProc_GotoSubtitle(HWND w_Dlg, UINT Msg, WPARAM wParam, LPARAM lParam);
 	static LRESULT __stdcall DlgProc_ErrorReport(HWND w_Dlg, UINT Msg, WPARAM wParam, LPARAM lParam);
+	static LRESULT __stdcall DlgProc_About(HWND w_Dlg, UINT Msg, WPARAM wParam, LPARAM lParam);
 
-	static LRESULT __stdcall SubclassProc_AddTitlePanel(HWND w_Handle, UINT Msg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
-
+	static LRESULT __stdcall SubclassProc_AddTitlePanel(HWND w_Handle, UINT Msg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData); 
+	
 	void SubtitleReviewDraw(HWND w_rwHandle, HDC hdc);
 	void OpenSubtitleFile(HWND w_Handle, int criteria);
 	HWND GetHandle() const noexcept;
