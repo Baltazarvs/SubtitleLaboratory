@@ -237,3 +237,22 @@ std::wstring SubtitleLaboratory::SubRipParser::SingleDigitToZeroDigit(unsigned i
 	}
 	return res_num;
 }
+
+SubtitleLaboratory::SubRipTimer SubtitleLaboratory::SubRipParser::CalculateDuration(SubtitleLaboratory::SubRipTimer start_time, SubtitleLaboratory::SubRipTimer end_time)
+{
+	unsigned int start_ms = this->ConvertToUnit<unsigned int, SubtitleLaboratory::millisecond>(start_time);
+	unsigned int end_ms = this->ConvertToUnit<unsigned int, SubtitleLaboratory::millisecond>(end_time);
+
+	unsigned int total_ms = end_ms - start_ms;
+	unsigned int hours = total_ms / (3600 * 1000); total_ms = (total_ms % (3600 * 1000));
+	unsigned int minutes = total_ms / (60 * 1000); total_ms = (total_ms % (60 * 1000));
+	unsigned int seconds = total_ms / 1000; total_ms = (total_ms % 1000);
+
+	SubtitleLaboratory::SubRipTimer timer_result{ };
+	timer_result.HH = hours;
+	timer_result.MM = minutes;
+	timer_result.SS = seconds;
+	timer_result.MS = total_ms;
+
+	return timer_result;
+}

@@ -67,7 +67,7 @@ bool SaveSRTToFile(HWND w_Handle);
 bool IsTimerValid(SubtitleLaboratory::SubRipTimer timer);
 bool IsTimerBeginEndValid(SubtitleLaboratory::SubRipTimer begin, SubtitleLaboratory::SubRipTimer end);
 void RefreshTitleList(HWND w_lvHandle);
-void AttachZerosIfSingleDigit(std::wostringstream& woss, SubtitleLaboratory::SubRipTimer& ref_timer);
+void AttachZerosIfSingleDigit(std::wostringstream& woss, SubtitleLaboratory::SubRipTimer& ref_timer, bool bDurationTimer);
 double GetTitleDuration(int unit_id, SubtitleLaboratory::SubtitleContainer cnt);
 double ConvertTimeUnit(int from_unit_id, int to_unit_id, unsigned long int amount);
 HWND InitializeSubtitleReviewControl(HWND w_Handle);
@@ -817,6 +817,12 @@ LRESULT __stdcall Application::DlgProc_ReviewSubtitle(HWND w_Dlg, UINT Msg, WPAR
 		woss_info << lines_number;
 		LV_InsertItems(w_InfoList, 0u, { L"Lines Count", woss_info.str().c_str() });
 		woss_info.str(std::wstring());
+
+		auto total_duration = obj_Parser.CalculateDuration(::subtitles_deque[0].time_begin, ::subtitles_deque[subtitles_deque.size() - 1ull].time_end);
+		AttachZerosIfSingleDigit(woss_info, total_duration, true);
+		LV_InsertItems(w_InfoList, 0u, { L"Duration", woss_info.str().c_str() });
+		woss_info.str(std::wstring());
+
 		break;
 	}
 	case WM_CLOSE:
@@ -1280,7 +1286,7 @@ void InitUI(HWND w_Handle, HINSTANCE w_Inst)
 	);
 
 	// Initialize columns of the list view.
-	std::vector<const wchar_t*> Columns{ L"#", L"Begin Time", L"End Time",L"Text" };
+	std::vector<const wchar_t*> Columns{ L"#", L"Begin Time", L"End Time", L"Duration", L"Text"};
 	LV_InsertColumns(w_MainTitleList, Columns, &::p_FixSizeMainList);
 	SetWindowLongPtrA(w_MainTitleList, GWLP_USERDATA, (LONG_PTR)Columns.size());
 
@@ -1699,14 +1705,16 @@ bool AddTitle(HWND w_lvHandle, SubtitleLaboratory::SubtitleContainer cnt)
 	}
 
 	unsigned int index = 0u;
-	std::wostringstream woss_tbeg, woss_tend, woss_index;
+	std::wostringstream woss_tbeg, woss_tend, woss_index, woss_duration;
 	woss_index << cnt.number;
+	SubtitleLaboratory::SubRipTimer duration_timer = obj_Parser.CalculateDuration(cnt.time_begin, cnt.time_end);
 
 	// HOURS: If there is just single-digit number, attach 0 to its left side.
-	AttachZerosIfSingleDigit(woss_tbeg, cnt.time_begin);
-	AttachZerosIfSingleDigit(woss_tend, cnt.time_end);
+	AttachZerosIfSingleDigit(woss_tbeg, cnt.time_begin, false);
+	AttachZerosIfSingleDigit(woss_tend, cnt.time_end, false);
+	AttachZerosIfSingleDigit(woss_duration, duration_timer, true);
 
-	if (!LV_InsertItems(w_lvHandle, 0u, { woss_index.str().c_str(), woss_tbeg.str().c_str(), woss_tend.str().c_str(), cnt.lpstrText.c_str() }))
+	if (!LV_InsertItems(w_lvHandle, 0u, { woss_index.str().c_str(), woss_tbeg.str().c_str(), woss_tend.str().c_str(), woss_duration.str().c_str(), cnt.lpstrText.c_str()}))
 	{
 		MessageBoxA(GetParent(w_lvHandle), "Cannot add title!", "Error!", MB_OK | MB_ICONERROR);
 		PostQuitMessage(-1);
@@ -1825,17 +1833,17 @@ void RefreshTitleList(HWND w_lvHandle)
 void p_FixSizeForReviewList(std::size_t& for_index, int& cx)
 {
 	if (for_index == 0ull) cx = 100;
-	else cx = 50;
+	else cx = 115;
 }
 
 void p_FixSizeMainList(std::size_t& for_index, int& cx)
 {
 	if (for_index == 0)
-		cx = 50; // For #
-	else if ((for_index == 1) || (for_index == 2))
-		cx = 150; // For title begin and end
+		cx = 50;
+	else if ((for_index == 1) || (for_index == 2) || (for_index == 3))
+		cx = 150;
 	else
-		cx = 610; // For title text
+		cx = 460;
 }
 
 void p_FixSizeForErrorList(std::size_t& for_index, int& cx)
@@ -1844,30 +1852,42 @@ void p_FixSizeForErrorList(std::size_t& for_index, int& cx)
 	return;
 }
 
-void AttachZerosIfSingleDigit(std::wostringstream& woss, SubtitleLaboratory::SubRipTimer& ref_timer)
+void AttachZerosIfSingleDigit(std::wostringstream& woss, SubtitleLaboratory::SubRipTimer& ref_timer, bool bDurationTimer)
 {
 	// HOURS
 	if (ref_timer.HH <= 9) woss << L'0' << ref_timer.HH;
 	else woss << ref_timer.HH;
 
-	woss << L':';
+	if(bDurationTimer)
+		woss << L"h ";
+	else
+		woss << L':';
 
 	// MINUTES
 	if (ref_timer.MM <= 9) woss << L'0' << ref_timer.MM;
 	else woss << ref_timer.MM;
 
-	woss << L':';
+	if (bDurationTimer)
+		woss << L"m ";
+	else
+		woss << L':';
 
 	// SECONDS
 	if (ref_timer.SS <= 9) woss << L'0' << ref_timer.SS;
 	else woss << ref_timer.SS;
 
-	woss << L',';
+	if (bDurationTimer)
+		woss << L"s ";
+	else
+		woss << L':';
 
 	// MILLISECONDS
 	if (ref_timer.MS <= 9) woss << L"00" << ref_timer.MS;
 	else if (ref_timer.MS <= 99 && ref_timer.MS > 9) woss << L'0' << ref_timer.MS;
 	else if (ref_timer.MS > 9 || ref_timer.MS > 99) woss << ref_timer.MS;
+
+	if (bDurationTimer)
+		woss << L"ms";
 	return;
 }
 
