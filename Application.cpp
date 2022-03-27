@@ -3,21 +3,6 @@
 #include "SubtitleLaboratoryParser.h"
 using namespace SubtitleLaboratory;
 
-/*
- * TODO:
- *	ADD FUNCTION THAT CHECKS IF ALL TITLE INDEXES IN LIST ARE VALID! e.g. 12345...9 is valid, 12347 is invalid.
- *  IN resource.rc, ADD FUNCTIONALITY THAT SHOWS AND HIDES SPECIFIED WINDOWS (ToolBar, StatusBar) by checking item.
- * FIX ADD SUBTITLE DIALOG SYSTEM! MUST ADD SUBTITLE TO LIST WITH VALID INDEX!
- * WHEN LOADING SRT FILE, \n SHOULD BE ADDED FOR NEW LINES TO BE DISPLAYED IN TEXT COLUMN IN MAIN LIST! MUSTN'T BE NON-SEPARATED
- * AFTER EVERYTIME USER OPENS NEW SUBTITLE ON 'Open Subtitle' MENU, CLEAR WHOLE MAIN LIST AND IMPORT PARSED DATA FROM CURRENT OPEN FILE.
- *		USE bSubtitleFileOpened TO UNDERGO THIS OPERATION. IT WILL CHECK IF FILE IS ALREADY OPEN OR NOT, AND IF IT IS, IT WILL UNDERGO THIS OPERATION!
- * FIX THE OPERATION, WHEN USER OPENS SUBTITLE WITH INVALID TIMERS OR DATA, WHEN ERROR MESSAGE BOX APPEARS, CANCEL WHOLE OPENING OPERATION,
- *		AND DON'T INSERT ANY TITLES INTO A LIST OR SUBTITLE GLOBAL DEQUE (subtitles_deque)!!!\
- * 
- * INPUTING ONLY ONE NUMBER INSIDE HHMMSSMS EDITS IN ADD SUBTITLE WILL NOT ADD ZERO BEFORE SPECIFIED NUMBER. FIX IT.
- * E.G.    Input: 5, Output: 5, Expected: 05. Implement this system.
-*/
-
 #define DLG_DISPLAY_ERROR(par) DialogBox(nullptr, MAKEINTRESOURCE(IDD_ERRORREPORT), par, (DLGPROC)&Application::DlgProc_ErrorReport);
 
 #define IDC_LV_EDITOR_LIST				20001
@@ -60,7 +45,7 @@ bool LV_InsertItems(HWND, int, std::vector<const wchar_t*>);
 std::string SaveOpenFilePath(HWND w_Handle, const char* title, const char* fFilter, int criteria);
 std::wstring SaveOpenFilePathW(HWND w_Handle, const wchar_t* title, const wchar_t* fFilter, int criteria);
 SLProjectStruct* LoadProject(const char* path);
-bool SaveProject(const char* path, SLProjectStruct& projectStruct);
+bool SaveProject(const char* path, SLProjectStruct* projectStruct);
 void InitializeSRTFileToListView(HWND w_lvHandle, const char* srtPath);
 bool AddTitle(HWND w_lvHandle, SubtitleLaboratory::SubtitleContainer cnt);
 bool SaveSRTToFile(HWND w_Handle);
@@ -80,6 +65,8 @@ void DeleteSubtitleItem(HWND w_lvHandle, int index);
 SubtitleLaboratory::SubRipTimer CalculateTime(int criteria, SubtitleLaboratory::SubRipTimer first_time, SubtitleLaboratory::SubRipTimer second_time);
 std::size_t FindCaseSensitive(std::wstring tstr, const wchar_t* wfind, std::size_t pos = 0ull);
 void FindAllCaseSensitiveOccurrences(std::wstring tstr, const wchar_t* wfind, std::vector<std::size_t>& pos_vec);
+bool IsEditEmpty(HWND);
+std::wstring BrowseFolder(std::string saved_path);
 
 void p_FixSizeForReviewList(std::size_t& for_index, int& cx);
 void p_FixSizeMainList(std::size_t& for_index, int& cx);
@@ -88,7 +75,7 @@ void p_FixSizeForErrorList(std::size_t& for_index, int& cx);
 // ============================ Runtime variables... ===============================
 std::deque<SubtitleLaboratory::SubtitleContainer> subtitles_deque;
 std::wstring current_opened_subtitle_path = NO_FILE_PATH;
-static bool bSubtitleFileOpened = false;
+static bool bRuntime_SubtitleFileOpened = false;
 
 static SLProjectStruct Runtime_LoadedProject; // Loaded project info.
 static bool bRuntime_ProjectLoaded = false; // Checks if project is loaded.
@@ -223,7 +210,8 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 
 		if (!Application::sopen_with_path.empty())
 		{
-			bRuntime_OpenWith = true;
+			::bRuntime_OpenWith = true;
+			::bRuntime_SubtitleFileOpened = true;
 			OpenSubtitleFile(w_Handle, CRITERIA_FILE_OPEN_WITH);
 		}
 		break;
@@ -281,7 +269,7 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 
 				char* buff = new char[MAX_PATH];
 				strcpy(buff, SaveOpenFilePath(w_Handle, "Save Project", "Subtitle Laboratory Project\0*.slproj\0", CRITERIA_SAVE).c_str());
-				SaveProject(buff, projectStruct);
+				SaveProject(buff, &projectStruct);
 				delete[] buff;
 				if (!bRuntime_ProjectLoaded)
 					bRuntime_ProjectLoaded = true;
@@ -492,7 +480,10 @@ LRESULT __stdcall Application::DlgProc_CreateProject(HWND w_Dlg, UINT Msg, WPARA
 	HWND w_ProjectName = GetDlgItem(w_Dlg, IDC_EDIT_PROJECT_NAME);
 	HWND w_ProjectAuthor = GetDlgItem(w_Dlg, IDC_EDIT_PROJECT_AUTHOR);
 	HWND w_ProjectDescription = GetDlgItem(w_Dlg, IDC_EDIT_PROJECT_DESCRIPTION);
+	HWND w_ProjectPath = GetDlgItem(w_Dlg, IDC_EDIT_PROJECT_PATH);
+	HWND w_ProjectCheckReadOnly = GetDlgItem(w_Dlg, IDC_CHECK_PROJECT_READ_ONLY);
 	HWND w_DescCounter = GetDlgItem(w_Dlg, IDC_STATIC_PROJECT_DESCRIPTION_CHARACTER_COUNT);
+	HWND w_ComboParser = GetDlgItem(w_Dlg, IDC_COMBO_PROJECT_TITLE_PARSER);
 
 	switch (Msg)
 	{
@@ -501,17 +492,103 @@ LRESULT __stdcall Application::DlgProc_CreateProject(HWND w_Dlg, UINT Msg, WPARA
 		SendMessage(w_ProjectName, EM_SETCUEBANNER, 0, reinterpret_cast<LPARAM>(L"Project Name"));
 		SendMessage(w_ProjectAuthor, EM_SETCUEBANNER, 0, reinterpret_cast<LPARAM>(L"Author Name"));
 		SendMessage(w_ProjectDescription, EM_SETCUEBANNER, 0, reinterpret_cast<LPARAM>(L"Description"));
+
+		std::wstring parsers_ids[] = { L"SRT", L"SBV", L"VTT" };
+		for (auto& a : parsers_ids)
+			SendMessage(w_ComboParser, CB_ADDSTRING, 0u, reinterpret_cast<LPARAM>(a.c_str()));
+		SendMessage(w_ComboParser, CB_SETCURSEL, 0u, 0u);
 		break;
 	}
 	case WM_COMMAND:
 	{
-		if (wParam == IDR_CREATE_PROJECT)
+		if (wParam == IDC_EDIT_PROJECT_DESCRIPTION)
 		{
-			// In Progress...
+			if (HIWORD(wParam) == EN_CHANGE)
+			{
+				std::ostringstream oss;
+				oss << SendMessageA(w_ProjectDescription, WM_GETTEXTLENGTH, 0u, 0u) << "/500";
+				SetWindowTextA(w_DescCounter, oss.str().c_str());
+			}
+		}
+
+		if (wParam == IDOK)
+		{
+			SLProjectStruct obj_Project = { };
+			bool bProjectReadOnly = IsDlgButtonChecked(w_Dlg, IDC_CHECK_PROJECT_READ_ONLY);
+
+			// Lengths...
+			int project_name_len = SendMessageA(w_ProjectName, WM_GETTEXTLENGTH, 0u, 0u) + 1;
+			int project_author_len = SendMessageA(w_ProjectAuthor, WM_GETTEXTLENGTH, 0u, 0u) + 1;
+			int project_desc_len = SendMessageA(w_ProjectDescription, WM_GETTEXTLENGTH, 0u, 0u) + 1;
+			int project_path_len = SendMessageA(w_ProjectPath, WM_GETTEXTLENGTH, 0u, 0u) + 1;
+			int project_parser_len = SendMessageA(w_ComboParser, WM_GETTEXTLENGTH, 0u, 0u) + 1;
+
+			if (
+				IsEditEmpty(w_ProjectName) ||
+				IsEditEmpty(w_ProjectAuthor) ||
+				IsEditEmpty(w_ProjectDescription) ||
+				IsEditEmpty(w_ProjectPath)
+			)
+			{
+				MessageBox(w_Dlg, L"Fill required info.", L"New Project Info", MB_OK | MB_ICONINFORMATION);
+				return 1;
+			}
+
+			// Project name.
+			char* cb_buffer_name = new char[project_name_len];
+			GetWindowTextA(w_ProjectName, cb_buffer_name, project_name_len);
+
+			// Project author.
+			char* cb_buffer_author = new char[project_name_len];
+			GetWindowTextA(w_ProjectAuthor, cb_buffer_author, project_author_len);
+
+			// Project description.
+			char* cb_buffer_desc = new char[project_desc_len];
+			GetWindowTextA(w_ProjectDescription, cb_buffer_desc, project_desc_len);
+
+			// Project Path.
+			char* cb_buffer_path = new char[project_path_len];
+			GetWindowTextA(w_ProjectPath, cb_buffer_path, project_path_len);
+			
+			// Project Parser.
+			char* cb_buffer_parser = new char[project_parser_len];
+			GetWindowTextA(w_ComboParser, cb_buffer_parser, project_parser_len);
+			
+			std::string str_path_temp(cb_buffer_path);
+			str_path_temp += "\\" + std::string(cb_buffer_name) + ".srt";
+
+			std::string project_path_temp(cb_buffer_path);
+			project_path_temp += "\\" + std::string(cb_buffer_name) + ".slproj";
+
+			// Import all data into the object descriptor.
+			strcpy(obj_Project.projectName, cb_buffer_name);
+			strcpy(obj_Project.authorName, cb_buffer_author);
+			strcpy(obj_Project.projectDescription, cb_buffer_desc);
+			strcpy(obj_Project.parser_ext, cb_buffer_parser);
+			strcpy(obj_Project.projectCreationDate, __DATE__);
+			strcpy(obj_Project.projectLastModifyDate, __DATE__);
+			strcpy(obj_Project.srtPath, str_path_temp.c_str());
+			strcpy(obj_Project.projectPath, project_path_temp.c_str());
+			obj_Project.bReadOnly = bProjectReadOnly;
+			obj_Project.sizeInBytes = sizeof(SLProjectStruct) * sizeof(BYTE);
+
+			SaveProject(project_path_temp.c_str(), &obj_Project);
+
+			delete[] cb_buffer_name;
+			delete[] cb_buffer_author;
+			delete[] cb_buffer_desc;
+			delete[] cb_buffer_path;
+			delete[] cb_buffer_parser;
+
 			EndDialog(w_Dlg, wParam);
 		}
 		if (wParam == IDCANCEL)
 			EndDialog(w_Dlg, IDCANCEL);
+		if (wParam == IDC_BUTTON_PROJECT_PATH_BROWSE)
+		{
+			std::wstring path = BrowseFolder(std::string());
+			SetWindowText(w_ProjectPath, path.c_str());
+		}
 		break;
 	}
 	case WM_KEYUP:
@@ -766,7 +843,7 @@ LRESULT __stdcall Application::DlgProc_ReviewSubtitle(HWND w_Dlg, UINT Msg, WPAR
 		SendMessage(w_InfoList, LVM_SETEXTENDEDLISTVIEWSTYLE, LVS_EX_FULLROWSELECT, LVS_EX_FULLROWSELECT);
 
 		// Set title to the dialog window. If there is no subtitle opened, proceed to else.
-		if (!current_opened_subtitle_path.empty())
+		if (::bRuntime_SubtitleFileOpened)
 			SetWindowText(w_Dlg, ::current_opened_subtitle_path.c_str());
 		else
 			SetWindowText(w_Dlg, L"No subtitle opened.");
@@ -798,15 +875,20 @@ LRESULT __stdcall Application::DlgProc_ReviewSubtitle(HWND w_Dlg, UINT Msg, WPAR
 		}
 		else
 		{
-			if (::current_opened_subtitle_path.empty())
+			if (!::bRuntime_SubtitleFileOpened)
+			{
+				MessageBox(w_Dlg, L"No subtitle opened.", L"Review Subtitle!", MB_OK | MB_ICONINFORMATION);
+				return 1;
+			}
+			else if (::current_opened_subtitle_path.empty())
 				return 1;
 			else
 			{
 				std::wostringstream woss;
 				woss << L"Cannot review subtitle file!\n" << ::current_opened_subtitle_path << L" is invalid path!";
-				MessageBoxW(w_Dlg, L"Cannot review subtitle file!", L"Error!", MB_OK | MB_ICONERROR);
+				MessageBoxW(w_Dlg, woss.str().c_str(), L"Error!", MB_OK | MB_ICONERROR);
 			}
-			return -1;
+			return 0;
 		}
 
 		std::wostringstream woss_info;
@@ -967,6 +1049,17 @@ LRESULT __stdcall Application::DlgProc_About(HWND w_Dlg, UINT Msg, WPARAM wParam
 	return 0;
 }
 
+int __stdcall Application::BrowseCallbackProc(HWND hwnd, UINT uMsg, LPARAM lParam, LPARAM lpData)
+{
+	if (uMsg == BFFM_INITIALIZED)
+	{
+		std::string tmp = (const char*)lpData;
+		std::cout << "path: " << tmp << std::endl;
+		SendMessage(hwnd, BFFM_SETSELECTION, TRUE, lpData);
+	}
+	return 0;
+}
+
 LRESULT __stdcall Application::SubclassProc_AddTitlePanel(HWND w_Handle, UINT Msg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData)
 {
 	switch (Msg)
@@ -1074,10 +1167,18 @@ LRESULT __stdcall Application::SubclassProc_AddTitlePanel(HWND w_Handle, UINT Ms
 
 					GetWindowText(w_SubtitleText, c_buffer, subtitle_text_len);
 
+					// Replace \r\n new lining with standard \n.
+					std::wstring cbuffer_temp(c_buffer);
+					std::vector<std::size_t> index_vect;
+					FindAllCaseSensitiveOccurrences(cbuffer_temp, L"\r", index_vect);
+					for (auto& index : index_vect)
+						cbuffer_temp.replace(index, 1, L"");
+
+					// Fill subtitle container descriptor.
 					obj_Container.number = ::Runtime_SubtitleIndex;
 					obj_Container.time_begin = begin_timer;
 					obj_Container.time_end = end_timer;
-					obj_Container.lpstrText = c_buffer;
+					obj_Container.lpstrText = cbuffer_temp.c_str();
 					delete[] c_buffer;
 
 					if (!::AddTitle(w_MainTitleList, obj_Container))
@@ -1217,6 +1318,7 @@ void Application::OpenSubtitleFile(HWND w_Handle, int criteria)
 				reinterpret_cast<DLGPROC>(&Application::DlgProc_ReviewSubtitle)
 			);
 			SendMessage(w_StatusBar, SB_SETTEXTW, 1u, reinterpret_cast<LPARAM>(path.c_str()));
+			::bRuntime_SubtitleFileOpened = true;
 		}
 	}
 	catch (std::exception& e)
@@ -1259,7 +1361,7 @@ void Application::RunMessageLoop()
 			bRuntime_SubtitleSelected = true;
 			SubtitleLaboratory::SubtitleContainer title_obj = ::subtitles_deque[LV_GetSelectedItemIndex(w_MainTitleList)];
 			::Runtime_SelectedSubtitleText = title_obj.lpstrText;
-			UpdateWindow(w_SubtitleReview);
+			//UpdateWindow(w_SubtitleReview);
 		}
 		TranslateMessage(&Msg);
 		DispatchMessageA(&Msg);
@@ -1365,7 +1467,7 @@ void InitUI(HWND w_Handle, HINSTANCE w_Inst)
 
 	w_SubtitleText = CreateWindow(
 		WC_EDIT, nullptr,
-		WS_VISIBLE | WS_CHILD | WS_BORDER | ES_MULTILINE,
+		WS_VISIBLE | WS_CHILD | WS_BORDER | WS_VSCROLL | ES_MULTILINE | ES_AUTOVSCROLL,
 		40, 42, 200, 40,
 		w_AddTitlePanel, reinterpret_cast<HMENU>(IDC_EDIT_SUBTITLE_TEXT), w_Inst, nullptr
 	);
@@ -1671,10 +1773,10 @@ SLProjectStruct* LoadProject(const char* path)
 	return &proj_temp;
 }
 
-bool SaveProject(const char* path, SLProjectStruct& projectStruct)
+bool SaveProject(const char* path, SLProjectStruct* projectStruct)
 {
-	std::fstream file;
-	file.open(path, std::ios::in | std::ios::out | std::ios::binary);
+	std::ofstream file;
+	file.open(path, std::ios::binary);
 	if (file.is_open())
 	{
 		file.write(reinterpret_cast<char*>(&projectStruct), sizeof(SLProjectStruct));
@@ -2180,4 +2282,45 @@ void FindAllCaseSensitiveOccurrences(std::wstring tstr, const wchar_t* wfind, st
 		pos = FindCaseSensitive(tstr, wfind, pos + wsfind.size());
 	}
 	return;
+}
+
+bool IsEditEmpty(HWND w_eHandle)
+{
+	int edit_text_length = SendMessage(w_eHandle, WM_GETTEXTLENGTH, 0u, 0u);
+	if (edit_text_length < 1)
+		return true;
+	return false;
+}
+
+std::wstring BrowseFolder(std::string saved_path)
+{
+	wchar_t path[MAX_PATH];
+
+	const char* path_param = saved_path.c_str();
+
+	BROWSEINFO bi = { 0 };
+	bi.lpszTitle = L"Select Folder...";
+	bi.ulFlags = BIF_RETURNONLYFSDIRS | BIF_NEWDIALOGSTYLE;
+	bi.lpfn = &Application::BrowseCallbackProc;
+	bi.lParam = (LPARAM)path_param;
+
+	LPITEMIDLIST pidl = SHBrowseForFolder(&bi);
+
+	if (pidl != 0)
+	{
+		//get the name of the folder and put it in path
+		SHGetPathFromIDList(pidl, path);
+
+		//free memory used
+		IMalloc* imalloc = 0;
+		if (SUCCEEDED(SHGetMalloc(&imalloc)))
+		{
+			imalloc->Free(pidl);
+			imalloc->Release();
+		}
+
+		static std::wstring path_temp(path);
+		return path_temp;
+	}
+	return std::wstring();
 }

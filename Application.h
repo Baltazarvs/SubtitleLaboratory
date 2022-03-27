@@ -7,6 +7,7 @@
 #include "resource.h"
 #include "GDIPlusRenderer.h"
 #include <iostream>
+#include <ShlObj.h>
 
 #define ID(_id)			reinterpret_cast<HMENU>(_id)
 #define TIME_PLUS		1
@@ -19,10 +20,13 @@ typedef struct
 {
 	char projectName[255];			// A-Z a-z 1-9 _#
 	char authorName[50];
+	char parser_ext[10];
 	char projectDescription[500];
 	char projectCreationDate[25];	// MM/DD/YYYY HH:MM:SS
 	char projectLastModifyDate[25]; // MM/DD/YYYY HH:MM:SS
 	char srtPath[MAX_PATH];
+	char projectPath[MAX_PATH];
+	bool bReadOnly;
 	BYTE sizeInBytes;
 } SLProjectStruct, *LPSLProjectStruct;
 
@@ -63,6 +67,7 @@ public:
 	static LRESULT __stdcall DlgProc_GotoSubtitle(HWND w_Dlg, UINT Msg, WPARAM wParam, LPARAM lParam);
 	static LRESULT __stdcall DlgProc_ErrorReport(HWND w_Dlg, UINT Msg, WPARAM wParam, LPARAM lParam);
 	static LRESULT __stdcall DlgProc_About(HWND w_Dlg, UINT Msg, WPARAM wParam, LPARAM lParam);
+	static int __stdcall BrowseCallbackProc(HWND hwnd, UINT uMsg, LPARAM lParam, LPARAM lpData);
 
 	static LRESULT __stdcall SubclassProc_AddTitlePanel(HWND w_Handle, UINT Msg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData); 
 	

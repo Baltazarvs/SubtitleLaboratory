@@ -36,6 +36,7 @@
 #define IDC_EDIT_GOTO_INDEX             1017
 #define IDC_EDIT_HH_BEGIN               1018
 #define IDC_EDIT_HH_END                 1019
+#define IDC_EDIT_PROJECT_DESC           1019
 #define IDC_EDIT_MM_BEGIN               1020
 #define IDC_EDIT_MM_END                 1021
 #define IDC_EDIT_SS_BEGIN               1022
@@ -47,6 +48,11 @@
 #define IDC_LIST_ERRORS_INFO            1029
 #define IDC_STATIC_ABOUT                1033
 #define IDC_STATIC_ERROR_REPORT         1034
+#define IDC_COMBO_PROJECT_TITLE_PARSER  1035
+#define IDC_EDIT_PROJECT_PATH           1036
+#define IDC_BUTTON_PROJECT_PATH_BROWSE  1037
+#define IDC_CHECK_READ_ONLY             1038
+#define IDC_CHECK_PROJECT_READ_ONLY     1038
 #define ID_FILE_NEW                     40001
 #define ID_FILE_OPEN                    40002
 #define ID_FILE_SAVE                    40003
@@ -95,9 +101,9 @@
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        124
+#define _APS_NEXT_RESOURCE_VALUE        126
 #define _APS_NEXT_COMMAND_VALUE         40044
-#define _APS_NEXT_CONTROL_VALUE         1035
+#define _APS_NEXT_CONTROL_VALUE         1039
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif
