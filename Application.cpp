@@ -277,7 +277,12 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 			}
 			case ID_FILE_NEWSUBTITLE:
 			{
-				::RefreshTitleList(w_MainTitleList);
+				current_opened_subtitle_path = std::wstring();
+				::bRuntime_SubtitleFileOpened = false;
+				ListView_DeleteAllItems(w_MainTitleList);
+				::subtitles_deque.erase(subtitles_deque.begin(), subtitles_deque.end());
+				SendMessage(w_StatusBar, SB_SETTEXTA, 1u, reinterpret_cast<LPARAM>("No subtitle Loaded."));
+				::Runtime_SubtitleIndex = 1;
 				break;
 			}
 			case ID_FILE_OPENSUBTITLE:
@@ -573,6 +578,18 @@ LRESULT __stdcall Application::DlgProc_CreateProject(HWND w_Dlg, UINT Msg, WPARA
 			obj_Project.sizeInBytes = sizeof(SLProjectStruct) * sizeof(BYTE);
 
 			SaveProject(project_path_temp.c_str(), &obj_Project);
+			
+
+			SendMessageA(w_StatusBar, SB_SETTEXTA, 0u, reinterpret_cast<LPARAM>(obj_Project.projectPath));
+			SendMessageA(w_StatusBar, SB_SETTEXTA, 1u, reinterpret_cast<LPARAM>(obj_Project.srtPath));
+
+			memset(&Runtime_LoadedProject, 0, sizeof(SLProjectStruct));
+			memcpy(&Runtime_LoadedProject, &obj_Project, sizeof(SLProjectStruct));
+			
+			::bRuntime_ProjectLoaded = true;
+			std::wostringstream woss;
+			woss << obj_Project.srtPath;
+			current_opened_subtitle_path = woss.str();
 
 			delete[] cb_buffer_name;
 			delete[] cb_buffer_author;
@@ -1402,7 +1419,7 @@ void InitUI(HWND w_Handle, HINSTANCE w_Inst)
 
 	SetupStatusBar(w_StatusBar);
 	SendMessageA(w_StatusBar, SB_SETTEXTA, 0u, reinterpret_cast<LPARAM>("No project loaded."));
-	SendMessageA(w_StatusBar, SB_SETTEXTA, 1u, reinterpret_cast<LPARAM>("No Subtitle loaded."));
+	SendMessageA(w_StatusBar, SB_SETTEXTA, 1u, reinterpret_cast<LPARAM>("No subtitle loaded."));
 
 	w_ToolBar = CreateWindowExA(
 		0, TOOLBARCLASSNAMEA, nullptr,
@@ -1787,6 +1804,9 @@ bool SaveProject(const char* path, SLProjectStruct* projectStruct)
 		MessageBoxA(0, "Cannot save project!", "Error!", MB_OK | MB_ICONERROR);
 		return false;
 	}
+
+	std::ofstream file_srt(projectStruct->srtPath);
+	file_srt.close();
 	return true;
 }
 
@@ -1828,7 +1848,12 @@ bool AddTitle(HWND w_lvHandle, SubtitleLaboratory::SubtitleContainer cnt)
 
 bool SaveSRTToFile(HWND w_Handle)
 {
-	std::wstring path = ::SaveOpenFilePathW(w_Handle, L"Save Subtitle", L"SubRip File\0*.srt\0", CRITERIA_SAVE);
+	std::wstring path = std::wstring();
+	if (!::bRuntime_SubtitleFileOpened)
+		path = ::SaveOpenFilePathW(w_Handle, L"Save Subtitle", L"SubRip File\0*.srt\0", CRITERIA_SAVE);
+	else
+		path = current_opened_subtitle_path;
+
 	if (path.length() < 1)
 		return true;
 
@@ -1858,6 +1883,12 @@ bool SaveSRTToFile(HWND w_Handle)
 			woss << ttl.lpstrText << std::endl;
 			woss << std::endl; // Should be avoided for the last subtitle in deque.
 			file << woss.str().c_str();
+		}
+		if (!::bRuntime_SubtitleFileOpened)
+		{
+			current_opened_subtitle_path = path.c_str();
+			::bRuntime_SubtitleFileOpened = true;
+			SendMessage(w_StatusBar, SB_SETTEXTW, 1u, reinterpret_cast<LPARAM>(path.c_str()));
 		}
 		file.close();
 	}
