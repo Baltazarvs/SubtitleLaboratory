@@ -1318,7 +1318,7 @@ void Application::OpenSubtitleFile(HWND w_Handle, int criteria)
 			path = woss.str();
 		}
 		else
-			path = ::SaveOpenFilePathW(w_Handle, L"Open Subtitle", L"SubRip File (*.srt)\0*.srt\0", CRITERIA_OPEN);
+			path = ::SaveOpenFilePathW(w_Handle, L"Open Subtitle", L"SubRip File (*.srt)\0*.srt\0VTT Subtitle\0*.vtt\0", CRITERIA_OPEN);
 		std::deque<SubtitleLaboratory::SubtitleContainer> parsed_titles = std::deque<SubtitleLaboratory::SubtitleContainer>();
 
 		// If file is already opened...
@@ -1326,6 +1326,8 @@ void Application::OpenSubtitleFile(HWND w_Handle, int criteria)
 			current_opened_subtitle_path = path;
 		else
 			return;
+
+		::Runtime_ParserType = ConvertWStringToString(RetrieveFileExtension(path));
 
 		if (path.length() > 1)
 		{
@@ -1421,9 +1423,10 @@ void Application::RunMessageLoop()
 void InitUI(HWND w_Handle, HINSTANCE w_Inst)
 {
 	DWORD defWndStyle = (WS_VISIBLE | WS_CHILD);
+	DWORD mainListExStyles = LVS_EX_FULLROWSELECT | LVS_EX_GRIDLINES | LVS_EX_CHECKBOXES;
 
 	w_MainTitleList = CreateWindowExA(
-		LVS_EX_FULLROWSELECT, WC_LISTVIEWA, nullptr,
+		mainListExStyles, WC_LISTVIEWA, nullptr,
 		defWndStyle | WS_BORDER | LVS_REPORT | LVS_SINGLESEL | LVS_SHOWSELALWAYS,
 		0, 0, 0, 0,
 		w_Handle, ID(IDC_LV_EDITOR_LIST), w_Inst, nullptr
@@ -1432,8 +1435,8 @@ void InitUI(HWND w_Handle, HINSTANCE w_Inst)
 	SendMessageA(
 		w_MainTitleList,
 		LVM_SETEXTENDEDLISTVIEWSTYLE,
-		(WPARAM)LVS_EX_FULLROWSELECT,
-		(LPARAM)LVS_EX_FULLROWSELECT
+		(WPARAM)mainListExStyles,
+		(LPARAM)mainListExStyles
 	);
 
 	// Initialize columns of the list view.
@@ -1923,12 +1926,14 @@ bool ExportSubtitleToFile(HWND w_Handle)
 		}
 		else if (::Runtime_ParserType == "VTT")
 		{
+			std::wostringstream woss;
+			woss << "WEBVTT" << std::endl;
+			
 			for (auto& ttl : ::subtitles_deque)
 			{
 				if (!::IsTimerBeginEndValid(ttl.time_begin, ttl.time_end))
 					return false;
 
-				std::wostringstream woss;
 				woss << ttl.number << std::endl;
 
 				if (ttl.time_begin.HH <= 9)
