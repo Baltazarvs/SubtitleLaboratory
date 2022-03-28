@@ -143,6 +143,7 @@
     <ClCompile Include="Application.cpp" />
     <ClCompile Include="Source.cpp" />
     <ClCompile Include="SubtitleLaboratoryParser.cpp" />
+    <ClCompile Include="VTTSubtitleParser.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h" />
@@ -150,6 +151,7 @@
     <ClInclude Include="resource.h" />
     <ClInclude Include="SubtitleLaboratoryParser.h" />
     <ClInclude Include="Utilities.h" />
+    <ClInclude Include="VTTSubtitleParser.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Subtitle_Laboratory.rc" />

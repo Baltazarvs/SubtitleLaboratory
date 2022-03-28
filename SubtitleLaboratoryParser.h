@@ -42,7 +42,7 @@ namespace SubtitleLaboratory
 
 	private:
 		// For timer
-		SubtitleLaboratory::SubRipTimer ParseTime(std::wstring beTimer);
+		virtual SubtitleLaboratory::SubRipTimer ParseTime(std::wstring beTimer);
 
 	public:
 		SubRipParser();

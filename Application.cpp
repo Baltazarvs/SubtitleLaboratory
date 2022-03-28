@@ -1,6 +1,7 @@
 // 2020 - 2022 Baltazarus
 
 #include "SubtitleLaboratoryParser.h"
+#include "VTTSubtitleParser.h"
 using namespace SubtitleLaboratory;
 
 #define DLG_DISPLAY_ERROR(par) DialogBox(nullptr, MAKEINTRESOURCE(IDD_ERRORREPORT), par, (DLGPROC)&Application::DlgProc_ErrorReport);
@@ -36,6 +37,7 @@ typedef struct
 Application::WClass Application::WClass::WCInstance;
 std::wstring Application::sopen_with_path;
 SubtitleLaboratory::SubRipParser obj_Parser;
+SubtitleLaboratory::VTTSubtitleParser obj_VTTParser;
 
 void InitUI(HWND w_Handle, HINSTANCE w_Inst);
 void SetupToolbar(HWND w_Toolbar);
@@ -48,7 +50,7 @@ SLProjectStruct* LoadProject(const char* path);
 bool SaveProject(const char* path, SLProjectStruct* projectStruct);
 void InitializeSRTFileToListView(HWND w_lvHandle, const char* srtPath);
 bool AddTitle(HWND w_lvHandle, SubtitleLaboratory::SubtitleContainer cnt);
-bool SaveSRTToFile(HWND w_Handle);
+bool ExportSubtitleToFile(HWND w_Handle);
 bool IsTimerValid(SubtitleLaboratory::SubRipTimer timer);
 bool IsTimerBeginEndValid(SubtitleLaboratory::SubRipTimer begin, SubtitleLaboratory::SubRipTimer end);
 void RefreshTitleList(HWND w_lvHandle);
@@ -67,6 +69,8 @@ std::size_t FindCaseSensitive(std::wstring tstr, const wchar_t* wfind, std::size
 void FindAllCaseSensitiveOccurrences(std::wstring tstr, const wchar_t* wfind, std::vector<std::size_t>& pos_vec);
 bool IsEditEmpty(HWND);
 std::wstring BrowseFolder(std::string saved_path);
+std::wstring RetrieveFileExtension(std::wstring path);
+std::string ConvertWStringToString(std::wstring str_obj);
 
 void p_FixSizeForReviewList(std::size_t& for_index, int& cx);
 void p_FixSizeMainList(std::size_t& for_index, int& cx);
@@ -93,6 +97,8 @@ static bool bRuntime_OpenWith = false;
 
 static std::wstring Runtime_LastSubtitleError = std::wstring();
 static unsigned int Runtime_SubtitleIndex = 1u;
+
+static std::string Runtime_ParserType = "SRT";
 
 // ============================ Control handle variables... =========================
 static HWND w_MainTitleList = nullptr;
@@ -212,7 +218,9 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 		{
 			::bRuntime_OpenWith = true;
 			::bRuntime_SubtitleFileOpened = true;
-			OpenSubtitleFile(w_Handle, CRITERIA_FILE_OPEN_WITH);
+			::Runtime_ParserType = ConvertWStringToString(RetrieveFileExtension(Application::sopen_with_path));
+
+			this->OpenSubtitleFile(w_Handle, CRITERIA_FILE_OPEN_WITH);
 		}
 		break;
 	}
@@ -248,6 +256,11 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 				memcpy(&::Runtime_LoadedProject, &projectStruct, sizeof(SLProjectStruct));
 				SendMessageA(w_StatusBar, SB_SETTEXTA, 0u, reinterpret_cast<LPARAM>(c_buffer));
 				SendMessageA(w_StatusBar, SB_SETTEXTA, 1u, reinterpret_cast<LPARAM>(projectStruct.srtPath));
+
+				this->OpenSubtitleFile(w_Handle, CRITERIA_FILE_OPEN_WITHIN_PROJECT);
+
+				::Runtime_ParserType = ::Runtime_LoadedProject.parser_ext;
+
 				delete[] c_buffer;
 				bRuntime_ProjectLoaded = true;
 				break;
@@ -292,7 +305,7 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 			}
 			case ID_FILE_SAVESUBTITLE:
 			{
-				if (!::SaveSRTToFile(w_MainTitleList))
+				if (!::ExportSubtitleToFile(w_MainTitleList))
 				{
 					MessageBoxA(w_Handle, "Cannot save SRT to file.", "Error!", MB_OK | MB_ICONERROR);
 					return -1;
@@ -518,7 +531,7 @@ LRESULT __stdcall Application::DlgProc_CreateProject(HWND w_Dlg, UINT Msg, WPARA
 
 		if (wParam == IDOK)
 		{
-			SLProjectStruct obj_Project = { };
+			SLProjectStruct* obj_Project = new SLProjectStruct;
 			bool bProjectReadOnly = IsDlgButtonChecked(w_Dlg, IDC_CHECK_PROJECT_READ_ONLY);
 
 			// Lengths...
@@ -566,36 +579,39 @@ LRESULT __stdcall Application::DlgProc_CreateProject(HWND w_Dlg, UINT Msg, WPARA
 			project_path_temp += "\\" + std::string(cb_buffer_name) + ".slproj";
 
 			// Import all data into the object descriptor.
-			strcpy(obj_Project.projectName, cb_buffer_name);
-			strcpy(obj_Project.authorName, cb_buffer_author);
-			strcpy(obj_Project.projectDescription, cb_buffer_desc);
-			strcpy(obj_Project.parser_ext, cb_buffer_parser);
-			strcpy(obj_Project.projectCreationDate, __DATE__);
-			strcpy(obj_Project.projectLastModifyDate, __DATE__);
-			strcpy(obj_Project.srtPath, str_path_temp.c_str());
-			strcpy(obj_Project.projectPath, project_path_temp.c_str());
-			obj_Project.bReadOnly = bProjectReadOnly;
-			obj_Project.sizeInBytes = sizeof(SLProjectStruct) * sizeof(BYTE);
+			strcpy(obj_Project->projectName, cb_buffer_name);
+			strcpy(obj_Project->authorName, cb_buffer_author);
+			strcpy(obj_Project->projectDescription, cb_buffer_desc);
+			strcpy(obj_Project->parser_ext, cb_buffer_parser);
+			strcpy(obj_Project->projectCreationDate, __DATE__);
+			strcpy(obj_Project->projectLastModifyDate, __DATE__);
+			strcpy(obj_Project->srtPath, str_path_temp.c_str());
+			strcpy(obj_Project->projectPath, project_path_temp.c_str());
+			obj_Project->bReadOnly = bProjectReadOnly;
+			obj_Project->sizeInBytes = sizeof(SLProjectStruct) * sizeof(BYTE);
 
-			SaveProject(project_path_temp.c_str(), &obj_Project);
+			SaveProject(project_path_temp.c_str(), obj_Project);
 			
 
-			SendMessageA(w_StatusBar, SB_SETTEXTA, 0u, reinterpret_cast<LPARAM>(obj_Project.projectPath));
-			SendMessageA(w_StatusBar, SB_SETTEXTA, 1u, reinterpret_cast<LPARAM>(obj_Project.srtPath));
+			SendMessageA(w_StatusBar, SB_SETTEXTA, 0u, reinterpret_cast<LPARAM>(obj_Project->projectPath));
+			SendMessageA(w_StatusBar, SB_SETTEXTA, 1u, reinterpret_cast<LPARAM>(obj_Project->srtPath));
 
 			memset(&Runtime_LoadedProject, 0, sizeof(SLProjectStruct));
 			memcpy(&Runtime_LoadedProject, &obj_Project, sizeof(SLProjectStruct));
 			
 			::bRuntime_ProjectLoaded = true;
 			std::wostringstream woss;
-			woss << obj_Project.srtPath;
+			woss << obj_Project->srtPath;
 			current_opened_subtitle_path = woss.str();
+
+			Runtime_ParserType = cb_buffer_parser;
 
 			delete[] cb_buffer_name;
 			delete[] cb_buffer_author;
 			delete[] cb_buffer_desc;
 			delete[] cb_buffer_path;
 			delete[] cb_buffer_parser;
+			delete obj_Project;
 
 			EndDialog(w_Dlg, wParam);
 		}
@@ -1295,6 +1311,12 @@ void Application::OpenSubtitleFile(HWND w_Handle, int criteria)
 		std::wstring path = std::wstring();
 		if (criteria == CRITERIA_FILE_OPEN_WITH)
 			path = this->sopen_with_path;
+		else if (criteria == CRITERIA_FILE_OPEN_WITHIN_PROJECT)
+		{
+			std::wostringstream woss;
+			woss << Runtime_LoadedProject.srtPath;
+			path = woss.str();
+		}
 		else
 			path = ::SaveOpenFilePathW(w_Handle, L"Open Subtitle", L"SubRip File (*.srt)\0*.srt\0", CRITERIA_OPEN);
 		std::deque<SubtitleLaboratory::SubtitleContainer> parsed_titles = std::deque<SubtitleLaboratory::SubtitleContainer>();
@@ -1306,7 +1328,17 @@ void Application::OpenSubtitleFile(HWND w_Handle, int criteria)
 			return;
 
 		if (path.length() > 1)
-			parsed_titles = obj_Parser.ParseSubtitleFromFile(path.c_str());
+		{
+			if(Runtime_ParserType == "SRT")
+				parsed_titles = obj_Parser.ParseSubtitleFromFile(path.c_str());
+			else if (Runtime_ParserType == "VTT")
+				parsed_titles = obj_VTTParser.ParseSubtitleFromFile(path.c_str());
+			else
+			{
+				MessageBox(w_Handle, L"UNKNOWN PARSER", L"Fatal", MB_OK | MB_ICONERROR);
+				return;
+			}
+		}
 		::Runtime_SubtitleIndex = parsed_titles.size() + 1ull;
 
 		for (std::size_t i = 0ull; i < parsed_titles.size(); ++i)
@@ -1531,7 +1563,7 @@ void SetupToolbar(HWND w_Toolbar)
 	tbb.hInst = HINST_COMMCTRL;
 	tbb.nID = IDB_STD_SMALL_COLOR;
 	SendMessageA(w_Toolbar, TB_ADDBITMAP, 0u, reinterpret_cast<LPARAM>(&tbb));
-
+	
 	TBBUTTON tbbs[11] = { };
 
 	memset(&tbbs, 0, sizeof(TBBUTTON));
@@ -1546,7 +1578,7 @@ void SetupToolbar(HWND w_Toolbar)
 	tbbs[1].fsStyle = TBSTYLE_BUTTON;
 	tbbs[1].idCommand = ID_FILE_OPEN;
 	tbbs[1].iString = (INT_PTR)"Open";
-
+	
 	tbbs[2].iBitmap = STD_FILESAVE;
 	tbbs[2].fsState = TBSTATE_ENABLED;
 	tbbs[2].fsStyle = TBSTYLE_BUTTON;
@@ -1796,7 +1828,7 @@ bool SaveProject(const char* path, SLProjectStruct* projectStruct)
 	file.open(path, std::ios::binary);
 	if (file.is_open())
 	{
-		file.write(reinterpret_cast<char*>(&projectStruct), sizeof(SLProjectStruct));
+		file.write(reinterpret_cast<char*>(projectStruct), sizeof(SLProjectStruct));
 		file.close();
 	}
 	else
@@ -1846,43 +1878,75 @@ bool AddTitle(HWND w_lvHandle, SubtitleLaboratory::SubtitleContainer cnt)
 	return true;
 }
 
-bool SaveSRTToFile(HWND w_Handle)
+bool ExportSubtitleToFile(HWND w_Handle)
 {
 	std::wstring path = std::wstring();
 	if (!::bRuntime_SubtitleFileOpened)
-		path = ::SaveOpenFilePathW(w_Handle, L"Save Subtitle", L"SubRip File\0*.srt\0", CRITERIA_SAVE);
+		path = ::SaveOpenFilePathW(w_Handle, L"Save Subtitle", L"SubRip File\0*.srt\0VTT Subtitle\0*.vtt\0", CRITERIA_SAVE);
 	else
 		path = current_opened_subtitle_path;
 
 	if (path.length() < 1)
 		return true;
 
+	::Runtime_ParserType = ConvertWStringToString(RetrieveFileExtension(path));
+
 	std::wfstream file(path.c_str(), std::ios::in | std::ios::out | std::ios::trunc);
 	if (file.is_open())
 	{
-		for (auto& ttl : ::subtitles_deque)
+		if (::Runtime_ParserType == "SRT")
 		{
-			if (!::IsTimerBeginEndValid(ttl.time_begin, ttl.time_end))
-				return false;
+			for (auto& ttl : ::subtitles_deque)
+			{
+				if (!::IsTimerBeginEndValid(ttl.time_begin, ttl.time_end))
+					return false;
 
-			std::wostringstream woss;
-			woss << ttl.number << std::endl;
+				std::wostringstream woss;
+				woss << ttl.number << std::endl;
 
-			if (ttl.time_begin.HH <= 9)
-				woss << '0' << ttl.time_begin.HH << ':' << ttl.time_begin.MM << ':' << ttl.time_begin.SS << ',' << ttl.time_begin.MS;
-			else
-				woss << ttl.time_begin.HH << ':' << ttl.time_begin.MM << ':' << ttl.time_begin.SS << ',' << ttl.time_begin.MS;
+				if (ttl.time_begin.HH <= 9)
+					woss << '0' << ttl.time_begin.HH << ':' << ttl.time_begin.MM << ':' << ttl.time_begin.SS << ',' << ttl.time_begin.MS;
+				else
+					woss << ttl.time_begin.HH << ':' << ttl.time_begin.MM << ':' << ttl.time_begin.SS << ',' << ttl.time_begin.MS;
 
-			woss << " --> ";
+				woss << " --> ";
 
-			if (ttl.time_end.HH <= 9)
-				woss << '0' << ttl.time_end.HH << ':' << ttl.time_end.MM << ':' << ttl.time_end.SS << ',' << ttl.time_end.MS << std::endl;
-			else
-				woss << ttl.time_end.HH << ':' << ttl.time_end.MM << ':' << ttl.time_end.SS << ',' << ttl.time_end.MS << std::endl;
+				if (ttl.time_end.HH <= 9)
+					woss << '0' << ttl.time_end.HH << ':' << ttl.time_end.MM << ':' << ttl.time_end.SS << ',' << ttl.time_end.MS << std::endl;
+				else
+					woss << ttl.time_end.HH << ':' << ttl.time_end.MM << ':' << ttl.time_end.SS << ',' << ttl.time_end.MS << std::endl;
 
-			woss << ttl.lpstrText << std::endl;
-			woss << std::endl; // Should be avoided for the last subtitle in deque.
-			file << woss.str().c_str();
+				woss << ttl.lpstrText << std::endl;
+				woss << std::endl; // Should be avoided for the last subtitle in deque.
+				file << woss.str().c_str();
+			}
+		}
+		else if (::Runtime_ParserType == "VTT")
+		{
+			for (auto& ttl : ::subtitles_deque)
+			{
+				if (!::IsTimerBeginEndValid(ttl.time_begin, ttl.time_end))
+					return false;
+
+				std::wostringstream woss;
+				woss << ttl.number << std::endl;
+
+				if (ttl.time_begin.HH <= 9)
+					woss << '0' << ttl.time_begin.HH << ':' << ttl.time_begin.MM << ':' << ttl.time_begin.SS << '.' << ttl.time_begin.MS;
+				else
+					woss << ttl.time_begin.HH << ':' << ttl.time_begin.MM << ':' << ttl.time_begin.SS << '.' << ttl.time_begin.MS;
+
+				woss << " --> ";
+
+				if (ttl.time_end.HH <= 9)
+					woss << '0' << ttl.time_end.HH << ':' << ttl.time_end.MM << ':' << ttl.time_end.SS << '.' << ttl.time_end.MS << std::endl;
+				else
+					woss << ttl.time_end.HH << ':' << ttl.time_end.MM << ':' << ttl.time_end.SS << '.' << ttl.time_end.MS << std::endl;
+
+				woss << ttl.lpstrText << std::endl;
+				woss << std::endl; // Should be avoided for the last subtitle in deque.
+				file << woss.str().c_str();
+			}
 		}
 		if (!::bRuntime_SubtitleFileOpened)
 		{
@@ -2354,4 +2418,26 @@ std::wstring BrowseFolder(std::string saved_path)
 		return path_temp;
 	}
 	return std::wstring();
+}
+
+std::wstring RetrieveFileExtension(std::wstring path)
+{
+	auto extension_str = path.substr(path.find_last_of('.') + 1);
+
+	std::transform(
+		extension_str.begin(),
+		extension_str.end(),
+		extension_str.begin(),
+		::toupper
+	);
+
+	return extension_str;
+}
+
+std::string ConvertWStringToString(std::wstring str_obj)
+{
+	using convert_type = std::codecvt_utf8<wchar_t>;
+	std::wstring_convert<convert_type, wchar_t> converter;
+	std::string result_str = converter.to_bytes(str_obj);
+	return result_str;
 }

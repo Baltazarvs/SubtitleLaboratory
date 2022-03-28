@@ -18,6 +18,8 @@
 #include <fstream>
 #include <algorithm>
 #include <type_traits>
+#include <locale>
+#include <codecvt>
 
 #pragma warning(disable: 4996)
 #pragma comment(lib, "comctl32.lib")
