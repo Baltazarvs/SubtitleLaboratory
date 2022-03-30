@@ -63,7 +63,6 @@ public:
 	static LRESULT __stdcall DlgProc_CreateProject(HWND w_Dlg, UINT Msg, WPARAM wParam, LPARAM lParam);
 	static LRESULT __stdcall DlgProc_SrtEditor(HWND w_Dlg, UINT Msg, WPARAM wParam, LPARAM lParam);
 	static LRESULT __stdcall DlgProc_ProjectInfo(HWND w_Dlg, UINT Msg, WPARAM wParam, LPARAM lParam);
-	static LRESULT __stdcall DlgProc_AddSubtitle(HWND w_Dlg, UINT Msg, WPARAM wParam, LPARAM lParam);
 	static LRESULT __stdcall DlgProc_ReviewSubtitle(HWND w_Dlg, UINT Msg, WPARAM wParam, LPARAM lParam);
 	static LRESULT __stdcall DlgProc_GotoSubtitle(HWND w_Dlg, UINT Msg, WPARAM wParam, LPARAM lParam);
 	static LRESULT __stdcall DlgProc_ErrorReport(HWND w_Dlg, UINT Msg, WPARAM wParam, LPARAM lParam);

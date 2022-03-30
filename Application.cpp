@@ -1,4 +1,4 @@
-// 2020 - 2022 Baltazarus
+// Copyright (C) 2021 - 2022 Baltazarus
 
 #include "SubtitleLaboratoryParser.h"
 #include "VTTSubtitleParser.h"
@@ -358,15 +358,6 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 			case ID_VIEW_SHOWSUBTITLEREVIEW:
 				::ShowHideControl(bCheckView_ShowSubtitleReview, ID_VIEW_SHOWSUBTITLEREVIEW, w_SubtitleReview);
 				break;
-			case ID_EDIT_ADDSUBTITLE:
-			{
-				DialogBox(
-					Application::WClass::GetInstance(),
-					MAKEINTRESOURCE(IDD_ADDSUBTITLE),
-					w_Handle, reinterpret_cast<DLGPROC>(&Application::DlgProc_AddSubtitle)
-				);
-				break;
-			}
 			case ID_EDIT_CUT:
 			{
 
@@ -698,153 +689,6 @@ LRESULT __stdcall Application::DlgProc_ProjectInfo(HWND w_Dlg, UINT Msg, WPARAM 
 	case WM_COMMAND:
 		if (wParam == IDOK)
 			EndDialog(w_Dlg, 0);
-		break;
-	}
-	return 0;
-}
-
-LRESULT __stdcall Application::DlgProc_AddSubtitle(HWND w_Dlg, UINT Msg, WPARAM wParam, LPARAM lParam)
-{
-	HWND w_SubtitleText = GetDlgItem(w_Dlg, IDC_EDIT_SUBTITLETEXT);
-
-	HWND w_TimerBeginHH = GetDlgItem(w_Dlg, IDC_EDIT_HH_BEGIN);
-	HWND w_TimerBeginMM = GetDlgItem(w_Dlg, IDC_EDIT_MM_BEGIN);
-	HWND w_TimerBeginSS = GetDlgItem(w_Dlg, IDC_EDIT_SS_BEGIN);
-	HWND w_TimerBeginMS = GetDlgItem(w_Dlg, IDC_EDIT_MS_BEGIN);
-
-	HWND w_TimerEndHH = GetDlgItem(w_Dlg, IDC_EDIT_HH_END);
-	HWND w_TimerEndMM = GetDlgItem(w_Dlg, IDC_EDIT_MM_END);
-	HWND w_TimerEndSS = GetDlgItem(w_Dlg, IDC_EDIT_SS_END);
-	HWND w_TimerEndMS = GetDlgItem(w_Dlg, IDC_EDIT_MS_END);
-
-	switch (Msg)
-	{
-	case WM_INITDIALOG:
-		break;
-	case WM_COMMAND:
-	{
-		if (LOWORD(wParam) == IDOK)
-		{
-			// Check if length of HH, MM and SS is <= 2, and MS <= 3
-			if ((GetWindowTextLength(w_TimerBeginHH) > 2) ||
-				(GetWindowTextLength(w_TimerBeginMM) > 2) ||
-				(GetWindowTextLength(w_TimerBeginSS) > 2) ||
-				(GetWindowTextLength(w_TimerBeginMS) > 3)
-				)
-			{
-				MessageBoxA(
-					w_Dlg,
-					"Invalid length specified for begin timer!\nDigits must be:\nHH < 2\nMM < 2\nSS < 2\nMS < 3",
-					"Invalid Value!",
-					MB_OK | MB_ICONINFORMATION
-				);
-				return -1;
-			}
-
-			if ((GetWindowTextLength(w_TimerBeginHH) > 2) ||
-				(GetWindowTextLength(w_TimerBeginMM) > 2) ||
-				(GetWindowTextLength(w_TimerBeginSS) > 2) ||
-				(GetWindowTextLength(w_TimerBeginMS) > 3)
-				)
-			{
-				MessageBoxA(
-					w_Dlg,
-					"Invalid length specified for end timer!\nDigits must be:\nHH < 2\nMM < 2\nSS < 2\nMS < 3",
-					"Invalid Value!",
-					MB_OK | MB_ICONINFORMATION
-				);
-				return -1;
-			}
-
-
-			if ((GetWindowTextLength(w_TimerBeginHH) == 0) ||
-				(GetWindowTextLength(w_TimerBeginMM) == 0) ||
-				(GetWindowTextLength(w_TimerBeginSS) == 0) ||
-				(GetWindowTextLength(w_TimerBeginMS) == 0) ||
-				(GetWindowTextLength(w_TimerEndHH) == 0) ||
-				(GetWindowTextLength(w_TimerEndMM) == 0) ||
-				(GetWindowTextLength(w_TimerEndSS) == 0) ||
-				(GetWindowTextLength(w_TimerEndMS) == 0) ||
-				(GetWindowTextLength(w_SubtitleText) == 0)
-				)
-			{
-				MessageBoxA(
-					w_Dlg,
-					"Specify needed values.",
-					"Invalid Value!",
-					MB_OK | MB_ICONINFORMATION
-				);
-				return -1;
-			}
-
-			// Values per one subtitle.
-			unsigned int index = ::subtitles_deque.size() + 1;
-			SubtitleLaboratory::SubRipTimer time_begin = { };
-			SubtitleLaboratory::SubRipTimer time_end = { };
-			SubtitleLaboratory::SubtitleContainer sct = { };
-			wchar_t* lpstrText = nullptr;
-
-			// Values that will temporary store the values
-			unsigned int HHb, MMb, SSb, MSb; // Timer Begin
-			unsigned int HHe, MMe, SSe, MSe; // Timer End
-
-			// Begin Timer
-			char cHHBegin[3]; // HH
-			char cMMBegin[3]; // MM
-			char cSSBegin[3]; // SS
-			char cMSBegin[4]; // MS
-			// End Timer
-			char cHHEnd[3];   // HH
-			char cMMEnd[3];	  // MM
-			char cSSEnd[3];	  // SS
-			char cMSEnd[4];	  // MS
-
-			// Used for converting string to int.
-			std::wstringstream wss;
-
-			// Get values and store them into buffers above.
-			GetWindowTextA(w_TimerBeginHH, cHHBegin, 2);  GetWindowTextA(w_TimerEndHH, cHHEnd, 2);
-			GetWindowTextA(w_TimerBeginMM, cMMBegin, 2);  GetWindowTextA(w_TimerEndMM, cMMEnd, 2);
-			GetWindowTextA(w_TimerBeginSS, cSSBegin, 2);  GetWindowTextA(w_TimerEndSS, cSSEnd, 2);
-			GetWindowTextA(w_TimerBeginMS, cMSBegin, 3);  GetWindowTextA(w_TimerEndMS, cMSEnd, 3);
-
-			wss << cHHBegin; wss >> HHb; wss.str(std::wstring()); wss.clear();
-			wss << cHHEnd;   wss >> HHe; wss.str(std::wstring()); wss.clear();
-
-			wss << cMMBegin; wss >> MMb; wss.str(std::wstring()); wss.clear();
-			wss << cMMEnd;   wss >> MMe; wss.str(std::wstring()); wss.clear();
-
-			wss << cSSBegin; wss >> SSb; wss.str(std::wstring()); wss.clear();
-			wss << cSSEnd;   wss >> SSe; wss.str(std::wstring()); wss.clear();
-
-			wss << cMSBegin; wss >> MSb; wss.str(std::wstring()); wss.clear();
-			wss << cMSEnd;   wss >> MSe; wss.str(std::wstring()); wss.clear();
-
-			// Breakpoint:  this case needs to be fixed. See breakpoint!
-							// Get length of the subtitle text.
-			int title_text_length = Edit_GetTextLength(w_SubtitleText);
-
-			// Allocate buffer that will store the subtitle text.
-			lpstrText = new wchar_t[title_text_length + 1ull]; // Needs more attention!
-			if (lpstrText)
-				GetWindowText(w_SubtitleText, lpstrText, title_text_length);
-
-			sct.number = index;
-			sct.time_begin = { HHb, MMb, SSb, MSb };
-			sct.time_end = { HHe, MMe, SSe, MSe };
-			sct.lpstrText = lpstrText;
-
-			AddTitle(w_MainTitleList, sct);
-			delete[] lpstrText;
-			EndDialog(w_Dlg, IDOK);
-			break;
-		}
-		if (LOWORD(wParam) == IDCANCEL)
-			EndDialog(w_Dlg, IDCANCEL);
-		break;
-	}
-	case WM_CLOSE:
-		EndDialog(w_Dlg, 0);
 		break;
 	}
 	return 0;

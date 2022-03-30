@@ -7,7 +7,6 @@
 #define IDD_SRT_FILE_EDIT               106
 #define IDD_PROJECTINFO                 108
 #define IDD_DIALOG1                     110
-#define IDD_ADDSUBTITLE                 110
 #define IDD_REVIEWSRT                   112
 #define IDI_ICON_ADD                    116
 #define IDD_GOTOTITLE                   117
@@ -31,19 +30,8 @@
 #define IDC_STATIC_PROJECT_SIZE_INFO    1015
 #define IDC_EDIT_PROJECT_SRT_PATH       1016
 #define IDC_EDIT1                       1017
-#define IDC_EDIT_SUBTITLETEXT           1017
 #define IDC_EDIT_SRT_REVIEW             1017
 #define IDC_EDIT_GOTO_INDEX             1017
-#define IDC_EDIT_HH_BEGIN               1018
-#define IDC_EDIT_HH_END                 1019
-#define IDC_EDIT_PROJECT_DESC           1019
-#define IDC_EDIT_MM_BEGIN               1020
-#define IDC_EDIT_MM_END                 1021
-#define IDC_EDIT_SS_BEGIN               1022
-#define IDC_EDIT_SS_END                 1023
-#define IDC_EDIT_MS_BEGIN               1024
-#define IDC_EDIT_MS_END                 1025
-#define IDC_STATIC_HHMMSSMS             1026
 #define IDC_LIST_SRT_REVIEW_INFO        1027
 #define IDC_LIST_ERRORS_INFO            1029
 #define IDC_STATIC_ABOUT                1033
@@ -51,7 +39,6 @@
 #define IDC_COMBO_PROJECT_TITLE_PARSER  1035
 #define IDC_EDIT_PROJECT_PATH           1036
 #define IDC_BUTTON_PROJECT_PATH_BROWSE  1037
-#define IDC_CHECK_READ_ONLY             1038
 #define IDC_CHECK_PROJECT_READ_ONLY     1038
 #define ID_FILE_NEW                     40001
 #define ID_FILE_OPEN                    40002
