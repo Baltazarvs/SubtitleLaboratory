@@ -84,28 +84,26 @@ void p_FixSizeForErrorList(std::size_t& for_index, int& cx);
 
 // ============================ Runtime variables... ===============================
 std::deque<SubtitleLaboratory::SubtitleContainer> subtitles_deque;
-std::wstring current_opened_subtitle_path = NO_FILE_PATH;
-static bool bRuntime_SubtitleFileOpened = false;
 
+static unsigned int Runtime_SubtitleIndex = 1u;
+static bool bRuntime_SubtitleFileOpened = false;
+static bool bRuntime_SubtitleSelected = false;
 static SLProjectStruct Runtime_LoadedProject;
 static std::string Runtime_LoadedProjectPath = std::string();
-static bool bRuntime_ProjectLoaded = false;
-static bool bRedrawReview = false;
-static bool bRuntime_SubtitleSelected = false;
+std::wstring current_opened_subtitle_path = NO_FILE_PATH;
 static std::wstring Runtime_SelectedSubtitleText = std::wstring();
 static std::wstring Runtime_ErrorBoxString = std::wstring();
-static int Runtime_ErrorBoxTitle = 0;
 
 static int MainList_Width = 0;
 static int MainList_Height = 0;
 
+static int Runtime_ErrorBoxTitle = 0;
+static bool bRuntime_ProjectLoaded = false;
+static bool bRedrawReview = false;
 static bool bRuntime_SyncBeginning = true;
 static bool bRuntime_OpenWith = false;
-
-static std::wstring Runtime_LastSubtitleError = std::wstring();
-static unsigned int Runtime_SubtitleIndex = 1u;
-
 static std::string Runtime_ParserType = "SRT";
+static std::wstring Runtime_LastSubtitleError = std::wstring();
 
 // ============================ Control handle variables... =========================
 static HWND w_MainTitleList = nullptr;
@@ -247,6 +245,9 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 			}
 			case ID_FILE_OPENPROJECT:
 			{
+				//if (::bRuntime_ProjectLoaded)
+				//	::CloseProject();
+				
 				SLProjectStruct projectStruct;
 				char* c_buffer = new char[MAX_PATH];
 				std::string path = SaveOpenFilePath(w_Handle, "Open Project", "Subtitle Laboratory Project\0*.slproj\0", CRITERIA_OPEN);
@@ -2409,8 +2410,8 @@ void CloseProject()
 		::bRuntime_SubtitleFileOpened = false;
 		::current_opened_subtitle_path = std::wstring();
 		::Runtime_LoadedProjectPath = std::string();
-		::subtitles_deque.erase(subtitles_deque.begin(), subtitles_deque.end());
 		::Runtime_SubtitleIndex = 1u;
+		::subtitles_deque.erase(subtitles_deque.begin(), subtitles_deque.end());
 
 		int items_num = ListView_GetItemCount(w_MainTitleList);
 		for (int i = 0; i < items_num; ++i)
@@ -2431,11 +2432,13 @@ void Application::RunMessageLoop()
 		{
 			EnableMenuItem(GetMenu(GetParent(w_MainTitleList)), ID_FILE_CLOSEPROJECT, TRUE);
 			EnableMenuItem(GetMenu(GetParent(w_MainTitleList)), ID_FILE_SAVEPROJECT, TRUE);
+			EnableMenuItem(GetMenu(GetParent(w_MainTitleList)), ID_FILE_OPENPROJECT, FALSE);
 		}
 		else
 		{
 			EnableMenuItem(GetMenu(GetParent(w_MainTitleList)), ID_FILE_CLOSEPROJECT, FALSE);
 			EnableMenuItem(GetMenu(GetParent(w_MainTitleList)), ID_FILE_SAVEPROJECT, FALSE);
+			EnableMenuItem(GetMenu(GetParent(w_MainTitleList)), ID_FILE_OPENPROJECT, TRUE);
 		}
 
 		if (!::bRuntime_SubtitleFileOpened && ::subtitles_deque.size() < 1ull)
