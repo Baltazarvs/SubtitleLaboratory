@@ -83,13 +83,14 @@
 #define ID_HELP_ABOUT40041              40041
 #define ID_HELP_HOWTOUSE40042           40042
 #define ID_HELP_PATCHNOTES              40043
+#define ID_FILE_CLOSEPROJECT            40044
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        126
-#define _APS_NEXT_COMMAND_VALUE         40044
+#define _APS_NEXT_COMMAND_VALUE         40045
 #define _APS_NEXT_CONTROL_VALUE         1039
 #define _APS_NEXT_SYMED_VALUE           101
 #endif

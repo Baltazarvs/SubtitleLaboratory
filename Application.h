@@ -17,6 +17,8 @@
 #define CRITERIA_FILE_OPEN_WITH				1
 #define CRITERIA_FILE_OPEN_WITHIN_PROJECT	2
 
+#define FORBIDDEN_FILENAME_CHARS			"<>:/\\|?*\""
+
 typedef struct
 {
 	char projectName[255];			// A-Z a-z 1-9 _#
@@ -70,7 +72,7 @@ public:
 	static int __stdcall BrowseCallbackProc(HWND hwnd, UINT uMsg, LPARAM lParam, LPARAM lpData);
 
 	static LRESULT __stdcall SubclassProc_AddTitlePanel(HWND w_Handle, UINT Msg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData); 
-	
+
 	void SubtitleReviewDraw(HWND w_rwHandle, HDC hdc);
 	void OpenSubtitleFile(HWND w_Handle, int criteria);
 	HWND GetHandle() const noexcept;

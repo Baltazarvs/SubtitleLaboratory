@@ -71,6 +71,11 @@ bool IsEditEmpty(HWND);
 std::wstring BrowseFolder(std::string saved_path);
 std::wstring RetrieveFileExtension(std::wstring path);
 std::string ConvertWStringToString(std::wstring str_obj);
+std::wstring ConvertStringToWString(std::string str_obj);
+
+void UpdateProject(std::string path);
+std::string ProjectDateFormat();
+void CloseProject();
 
 void p_FixSizeForReviewList(std::size_t& for_index, int& cx);
 void p_FixSizeMainList(std::size_t& for_index, int& cx);
@@ -81,8 +86,9 @@ std::deque<SubtitleLaboratory::SubtitleContainer> subtitles_deque;
 std::wstring current_opened_subtitle_path = NO_FILE_PATH;
 static bool bRuntime_SubtitleFileOpened = false;
 
-static SLProjectStruct Runtime_LoadedProject; // Loaded project info.
-static bool bRuntime_ProjectLoaded = false; // Checks if project is loaded.
+static SLProjectStruct Runtime_LoadedProject;
+static std::string Runtime_LoadedProjectPath = std::string();
+static bool bRuntime_ProjectLoaded = false;
 static bool bRedrawReview = false;
 static bool bRuntime_SubtitleSelected = false;
 static std::wstring Runtime_SelectedSubtitleText = std::wstring();
@@ -257,35 +263,34 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 				SendMessageA(w_StatusBar, SB_SETTEXTA, 0u, reinterpret_cast<LPARAM>(c_buffer));
 				SendMessageA(w_StatusBar, SB_SETTEXTA, 1u, reinterpret_cast<LPARAM>(projectStruct.srtPath));
 
+				::bRuntime_ProjectLoaded = true;
+
 				this->OpenSubtitleFile(w_Handle, CRITERIA_FILE_OPEN_WITHIN_PROJECT);
 
-				::Runtime_ParserType = ::Runtime_LoadedProject.parser_ext;
-
 				delete[] c_buffer;
-				bRuntime_ProjectLoaded = true;
+				
+				::Runtime_ParserType = ::Runtime_LoadedProject.parser_ext;
+				::Runtime_LoadedProjectPath = Runtime_LoadedProject.projectPath;
+				::current_opened_subtitle_path = ConvertStringToWString(Runtime_LoadedProject.srtPath);
+
+				UpdateProject(::Runtime_LoadedProjectPath);
 				break;
 			}
 			case ID_FILE_SAVEPROJECT:
 			{
-				break; // For now.
-				// In Progress...
-				SLProjectStruct projectStruct;
-				memset(&projectStruct, 0, sizeof(SLProjectStruct));
-				// Test.
-				strcpy(projectStruct.authorName, "Baltazarus");
-				strcpy(projectStruct.projectDescription, "This is test project and will not be used for real intention.");
-				strcpy(projectStruct.projectCreationDate, __DATE__);
-				strcpy(projectStruct.projectLastModifyDate, __DATE__);
-				strcpy(projectStruct.projectName, "Test Project");
-				projectStruct.sizeInBytes = (BYTE)sizeof(SLProjectStruct);
-				strcpy(projectStruct.srtPath, "test.srt");
-
-				char* buff = new char[MAX_PATH];
-				strcpy(buff, SaveOpenFilePath(w_Handle, "Save Project", "Subtitle Laboratory Project\0*.slproj\0", CRITERIA_SAVE).c_str());
-				SaveProject(buff, &projectStruct);
-				delete[] buff;
-				if (!bRuntime_ProjectLoaded)
-					bRuntime_ProjectLoaded = true;
+				if (::bRuntime_ProjectLoaded)
+				{
+					UpdateProject(::Runtime_LoadedProjectPath);
+					if (!::ExportSubtitleToFile(w_Handle))
+						MessageBoxA(w_Handle, "Cannot save subtitle.", "Error!", MB_OK | MB_ICONEXCLAMATION);
+				}
+				else
+					MessageBoxA(w_Handle, "No projects loaded.", "Save Project", MB_OK | MB_ICONINFORMATION);
+				break;
+			}
+			case ID_FILE_CLOSEPROJECT:
+			{
+				::CloseProject();
 				break;
 			}
 			case ID_FILE_NEWSUBTITLE:
@@ -498,6 +503,8 @@ LRESULT __stdcall Application::DlgProc_CreateProject(HWND w_Dlg, UINT Msg, WPARA
 	{
 	case WM_INITDIALOG:
 	{
+		SendMessage(w_ProjectDescription, EM_LIMITTEXT, (WPARAM)500, 0u);
+
 		SendMessage(w_ProjectName, EM_SETCUEBANNER, 0, reinterpret_cast<LPARAM>(L"Project Name"));
 		SendMessage(w_ProjectAuthor, EM_SETCUEBANNER, 0, reinterpret_cast<LPARAM>(L"Author Name"));
 		SendMessage(w_ProjectDescription, EM_SETCUEBANNER, 0, reinterpret_cast<LPARAM>(L"Description"));
@@ -510,18 +517,20 @@ LRESULT __stdcall Application::DlgProc_CreateProject(HWND w_Dlg, UINT Msg, WPARA
 	}
 	case WM_COMMAND:
 	{
-		if (wParam == IDC_EDIT_PROJECT_DESCRIPTION)
+		if (LOWORD(wParam) == IDOK)
 		{
-			if (HIWORD(wParam) == EN_CHANGE)
+			if (::bRuntime_ProjectLoaded)
 			{
-				std::ostringstream oss;
-				oss << SendMessageA(w_ProjectDescription, WM_GETTEXTLENGTH, 0u, 0u) << "/500";
-				SetWindowTextA(w_DescCounter, oss.str().c_str());
+				UpdateProject(::Runtime_LoadedProjectPath);
+				if (!::ExportSubtitleToFile(w_Dlg))
+					MessageBoxA(w_Dlg, "Cannot save subtitle.", "Error!", MB_OK | MB_ICONEXCLAMATION);
 			}
-		}
+			else
+				if (::bRuntime_SubtitleFileOpened)
+					ExportSubtitleToFile(GetParent(w_Dlg));
 
-		if (wParam == IDOK)
-		{
+			::CloseProject();
+
 			SLProjectStruct* obj_Project = new SLProjectStruct;
 			bool bProjectReadOnly = IsDlgButtonChecked(w_Dlg, IDC_CHECK_PROJECT_READ_ONLY);
 
@@ -546,6 +555,22 @@ LRESULT __stdcall Application::DlgProc_CreateProject(HWND w_Dlg, UINT Msg, WPARA
 			// Project name.
 			char* cb_buffer_name = new char[project_name_len];
 			GetWindowTextA(w_ProjectName, cb_buffer_name, project_name_len);
+
+			std::string project_name_temp(cb_buffer_name);
+			for (auto itr = project_name_temp.begin(); itr < project_name_temp.end(); ++itr)
+			{
+				std::string forbidden_chars = FORBIDDEN_FILENAME_CHARS;
+				for (std::size_t i = 0ull; i < forbidden_chars.length(); ++i)
+				{
+					if (*itr == forbidden_chars[i])
+					{
+						MessageBoxA(w_Dlg, "Invalid project name.\nAvoid: <>:/\\|?*\"", "Invalid Name", MB_OK | MB_ICONINFORMATION);
+						delete[] cb_buffer_name;
+						delete obj_Project;
+						break;
+					}
+				}
+			}
 
 			// Project author.
 			char* cb_buffer_author = new char[project_name_len];
@@ -574,8 +599,8 @@ LRESULT __stdcall Application::DlgProc_CreateProject(HWND w_Dlg, UINT Msg, WPARA
 			strcpy(obj_Project->authorName, cb_buffer_author);
 			strcpy(obj_Project->projectDescription, cb_buffer_desc);
 			strcpy(obj_Project->parser_ext, cb_buffer_parser);
-			strcpy(obj_Project->projectCreationDate, __DATE__);
-			strcpy(obj_Project->projectLastModifyDate, __DATE__);
+			strcpy(obj_Project->projectCreationDate, ProjectDateFormat().c_str());
+			strcpy(obj_Project->projectLastModifyDate, ProjectDateFormat().c_str());
 			strcpy(obj_Project->srtPath, str_path_temp.c_str());
 			strcpy(obj_Project->projectPath, project_path_temp.c_str());
 			obj_Project->bReadOnly = bProjectReadOnly;
@@ -583,19 +608,24 @@ LRESULT __stdcall Application::DlgProc_CreateProject(HWND w_Dlg, UINT Msg, WPARA
 
 			SaveProject(project_path_temp.c_str(), obj_Project);
 			
-
 			SendMessageA(w_StatusBar, SB_SETTEXTA, 0u, reinterpret_cast<LPARAM>(obj_Project->projectPath));
 			SendMessageA(w_StatusBar, SB_SETTEXTA, 1u, reinterpret_cast<LPARAM>(obj_Project->srtPath));
 
-			memset(&Runtime_LoadedProject, 0, sizeof(SLProjectStruct));
+			ZeroMemory(&Runtime_LoadedProject, sizeof(SLProjectStruct));
+
+			::bRuntime_ProjectLoaded = true;
+			::Runtime_LoadedProjectPath = project_path_temp;
+			::Runtime_ParserType = obj_Project->parser_ext;
 			memcpy(&Runtime_LoadedProject, &obj_Project, sizeof(SLProjectStruct));
 			
-			::bRuntime_ProjectLoaded = true;
 			std::wostringstream woss;
 			woss << obj_Project->srtPath;
 			current_opened_subtitle_path = woss.str();
 
-			Runtime_ParserType = cb_buffer_parser;
+			::Runtime_ParserType = cb_buffer_parser;
+			::bRuntime_SubtitleFileOpened = true;
+
+			EndDialog(w_Dlg, wParam);
 
 			delete[] cb_buffer_name;
 			delete[] cb_buffer_author;
@@ -604,11 +634,22 @@ LRESULT __stdcall Application::DlgProc_CreateProject(HWND w_Dlg, UINT Msg, WPARA
 			delete[] cb_buffer_parser;
 			delete obj_Project;
 
-			EndDialog(w_Dlg, wParam);
 		}
-		if (wParam == IDCANCEL)
+		if (LOWORD(wParam) == IDC_EDIT_PROJECT_DESCRIPTION)
+		{
+			if (HIWORD(wParam) == EN_CHANGE)
+			{
+				int text_len = GetWindowTextLength(w_ProjectDescription);
+				std::stringstream ss;
+				ss << text_len << "/500";
+				SetWindowTextA(w_DescCounter, ss.str().c_str());
+				break;
+			}
+			break;
+		}
+		if (LOWORD(wParam) == IDCANCEL)
 			EndDialog(w_Dlg, IDCANCEL);
-		if (wParam == IDC_BUTTON_PROJECT_PATH_BROWSE)
+		if (LOWORD(wParam) == IDC_BUTTON_PROJECT_PATH_BROWSE)
 		{
 			std::wstring path = BrowseFolder(std::string());
 			SetWindowText(w_ProjectPath, path.c_str());
@@ -781,6 +822,17 @@ LRESULT __stdcall Application::DlgProc_ReviewSubtitle(HWND w_Dlg, UINT Msg, WPAR
 		AttachZerosIfSingleDigit(woss_info, total_duration, true);
 		LV_InsertItems(w_InfoList, 0u, { L"Duration", woss_info.str().c_str() });
 		woss_info.str(std::wstring());
+
+		if (::bRuntime_ProjectLoaded)
+		{
+			woss_info << Runtime_LoadedProject.projectCreationDate;
+			LV_InsertItems(w_InfoList, 0u, { L"Created", woss_info.str().c_str() });
+			woss_info.str(std::wstring());
+		
+			woss_info << Runtime_LoadedProject.projectLastModifyDate;
+			LV_InsertItems(w_InfoList, 0u, { L"Modified", woss_info.str().c_str() });
+			woss_info.str(std::wstring());
+		}
 
 		break;
 	}
@@ -1162,7 +1214,7 @@ void Application::OpenSubtitleFile(HWND w_Handle, int criteria)
 			path = woss.str();
 		}
 		else
-			path = ::SaveOpenFilePathW(w_Handle, L"Open Subtitle", L"SubRip File (*.srt)\0*.srt\0VTT Subtitle\0*.vtt\0", CRITERIA_OPEN);
+			path = ::SaveOpenFilePathW(w_Handle, L"Open Subtitle", L"SubRip File (*.srt)\0*.srt\0", CRITERIA_OPEN);
 		std::deque<SubtitleLaboratory::SubtitleContainer> parsed_titles = std::deque<SubtitleLaboratory::SubtitleContainer>();
 
 		// If file is already opened...
@@ -1184,7 +1236,15 @@ void Application::OpenSubtitleFile(HWND w_Handle, int criteria)
 				MessageBox(w_Handle, L"UNKNOWN PARSER", L"Fatal", MB_OK | MB_ICONERROR);
 				return;
 			}
+
+			if (parsed_titles.size() < 1)
+			{
+				MessageBox(w_Handle, L"Subtitle file is empty.", path.c_str(), MB_OK);
+				::bRuntime_SubtitleFileOpened = true;
+				return;
+			}
 		}
+
 		::Runtime_SubtitleIndex = parsed_titles.size() + 1ull;
 
 		for (std::size_t i = 0ull; i < parsed_titles.size(); ++i)
@@ -1729,7 +1789,7 @@ bool ExportSubtitleToFile(HWND w_Handle)
 {
 	std::wstring path = std::wstring();
 	if (!::bRuntime_SubtitleFileOpened)
-		path = ::SaveOpenFilePathW(w_Handle, L"Save Subtitle", L"SubRip File\0*.srt\0VTT Subtitle\0*.vtt\0", CRITERIA_SAVE);
+		path = ::SaveOpenFilePathW(w_Handle, L"Save Subtitle", L"SubRip File\0*.srt\0", CRITERIA_SAVE);
 	else
 		path = current_opened_subtitle_path;
 
@@ -1879,7 +1939,7 @@ void RefreshTitleList(HWND w_lvHandle)
 void p_FixSizeForReviewList(std::size_t& for_index, int& cx)
 {
 	if (for_index == 0ull) cx = 100;
-	else cx = 115;
+	else cx = 125;
 }
 
 void p_FixSizeMainList(std::size_t& for_index, int& cx)
@@ -2289,4 +2349,60 @@ std::string ConvertWStringToString(std::wstring str_obj)
 	std::wstring_convert<convert_type, wchar_t> converter;
 	std::string result_str = converter.to_bytes(str_obj);
 	return result_str;
+}
+
+std::wstring ConvertStringToWString(std::string str_obj)
+{
+	std::wstring result_str;
+	std::wostringstream oss;
+	oss << str_obj.c_str();
+	result_str = oss.str();
+	return result_str;
+}
+
+void UpdateProject(std::string path)
+{
+	std::ifstream file;
+	file.open(path, std::ios::binary);
+	if (file.is_open())
+	{
+		SLProjectStruct* project_buff = new SLProjectStruct;
+		file.read(reinterpret_cast<char*>(project_buff), sizeof(SLProjectStruct));
+		file.close();
+
+		strcpy(project_buff->projectLastModifyDate, ProjectDateFormat().c_str());
+		SaveProject(path.c_str(), project_buff);
+		delete project_buff;
+	}
+	return;
+}
+
+std::string ProjectDateFormat()
+{
+	std::string result;
+	std::ostringstream oss;
+	oss << __DATE__ << ' ' << __TIME__;
+	result = oss.str();
+	return result;
+}
+
+void CloseProject()
+{
+	if (::bRuntime_ProjectLoaded)
+	{
+		::bRuntime_ProjectLoaded = false;
+		::bRuntime_SubtitleFileOpened = false;
+		::current_opened_subtitle_path = std::wstring();
+		::Runtime_LoadedProjectPath = std::string();
+		::subtitles_deque.erase(subtitles_deque.begin(), subtitles_deque.end());
+		::Runtime_SubtitleIndex = 1u;
+
+		int items_num = ListView_GetItemCount(w_MainTitleList);
+		for (int i = 0; i < items_num; ++i)
+			SendMessage(w_MainTitleList, LVM_DELETEALLITEMS, static_cast<WPARAM>(i), 0u);
+
+		SendMessageA(w_StatusBar, SB_SETTEXTA, 0u, reinterpret_cast<LPARAM>("No project loaded."));
+		SendMessageA(w_StatusBar, SB_SETTEXTA, 1u, reinterpret_cast<LPARAM>("No subtitle loaded."));
+	}
+	return;
 }
