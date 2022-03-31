@@ -53,6 +53,9 @@ SubtitleLaboratory::SubRipParser::SubRipParser()
 
 std::deque<SubtitleLaboratory::SubtitleContainer> SubtitleLaboratory::SubRipParser::ParseSubtitleFromFile(const wchar_t* path)
 {
+	if(!this->parsed_titles_deque.empty())
+		this->parsed_titles_deque.erase(parsed_titles_deque.begin(), parsed_titles_deque.end());
+
 	std::wfstream file(path, std::ios::in | std::ios::out);
 	std::wostringstream woss;
 	if (file.is_open())

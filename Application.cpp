@@ -296,17 +296,19 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 			}
 			case ID_FILE_NEWSUBTITLE:
 			{
+				::Runtime_SubtitleIndex = 1u;
 				current_opened_subtitle_path = std::wstring();
 				::bRuntime_SubtitleFileOpened = false;
 				ListView_DeleteAllItems(w_MainTitleList);
 				::subtitles_deque.erase(subtitles_deque.begin(), subtitles_deque.end());
 				SendMessage(w_StatusBar, SB_SETTEXTA, 1u, reinterpret_cast<LPARAM>("No subtitle Loaded."));
-				::Runtime_SubtitleIndex = 1;
+				UpdateStatusBar();
 				break;
 			}
 			case ID_FILE_OPENSUBTITLE:
 			{
 				this->OpenSubtitleFile(w_Handle, CRITERIA_FILE_OPEN_DEFAULT);
+				UpdateStatusBar();
 				break;
 			}
 			case ID_FILE_SAVESUBTITLE:
@@ -316,6 +318,7 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 					MessageBoxA(w_Handle, "Cannot save SRT to file.", "Error!", MB_OK | MB_ICONERROR);
 					return -1;
 				}
+				UpdateStatusBar();
 				break;
 			}
 			case ID_FILE_EXIT:
@@ -751,7 +754,9 @@ LRESULT __stdcall Application::DlgProc_ReviewSubtitle(HWND w_Dlg, UINT Msg, WPAR
 	case WM_INITDIALOG:
 	{
 		// If user change mind and wants to cancel opening of Subtitle Laboratory...
-		if (!::bRuntime_OpenWith)
+		if (::bRuntime_OpenWith)
+			ShowWindow(GetDlgItem(w_Dlg, IDCANCEL), SW_SHOW);
+		else
 			ShowWindow(GetDlgItem(w_Dlg, IDCANCEL), SW_HIDE);
 
 		// Initialize font for subtitle review edit control.
@@ -1276,8 +1281,10 @@ void Application::OpenSubtitleFile(HWND w_Handle, int criteria)
 				w_Handle,
 				reinterpret_cast<DLGPROC>(&Application::DlgProc_ReviewSubtitle)
 			);
+
 			SendMessage(w_StatusBar, SB_SETTEXTW, 1u, reinterpret_cast<LPARAM>(path.c_str()));
 			::bRuntime_SubtitleFileOpened = true;
+			::bRuntime_OpenWith = false;
 		}
 	}
 	catch (std::exception& e)
@@ -1523,7 +1530,7 @@ void SetupStatusBar(HWND w_Statusbar)
 	RECT cRect = { };
 	GetClientRect(GetParent(w_StatusBar), &cRect);
 
-	int iParts[3] = { cRect.right / 3, cRect.right - 100, -1 };
+	int iParts[4] = { cRect.right / 3, cRect.right / 2 + 100, cRect.right / 2 + 200, -1 };
 
 	SendMessageA(
 		w_Statusbar, SB_SETPARTS,
@@ -2344,20 +2351,26 @@ std::wstring ConvertStringToWString(std::string str_obj)
 
 void UpdateStatusBar()
 {
+	std::ostringstream oss;
+	oss << ::subtitles_deque.size() << " subtitles.";
+
 	if (::bRuntime_ProjectLoaded)
 	{
 		SendMessage(w_StatusBar, SB_SETTEXTA, 0u, reinterpret_cast<LPARAM>(Runtime_LoadedProject.projectPath));
 		SendMessage(w_StatusBar, SB_SETTEXTW, 1u, reinterpret_cast<LPARAM>(current_opened_subtitle_path.c_str()));
+		SendMessage(w_StatusBar, SB_SETTEXTA, 2u, reinterpret_cast<LPARAM>(oss.str().c_str()));
 	}
 	else if (::bRuntime_SubtitleFileOpened && !::bRuntime_ProjectLoaded)
 	{
 		SendMessage(w_StatusBar, SB_SETTEXTA, 0u, reinterpret_cast<LPARAM>("No project loaded."));
 		SendMessage(w_StatusBar, SB_SETTEXTW, 1u, reinterpret_cast<LPARAM>(current_opened_subtitle_path.c_str()));
+		SendMessage(w_StatusBar, SB_SETTEXTA, 2u, reinterpret_cast<LPARAM>(oss.str().c_str()));
 	}
 	else
 	{
 		SendMessage(w_StatusBar, SB_SETTEXTA, 0u, reinterpret_cast<LPARAM>("No project loaded."));
 		SendMessage(w_StatusBar, SB_SETTEXTA, 1u, reinterpret_cast<LPARAM>("No subtitle loaded."));
+		SendMessage(w_StatusBar, SB_SETTEXTA, 2u, reinterpret_cast<LPARAM>("0 subtitles."));
 	}
 	return;
 }
