@@ -72,6 +72,7 @@ std::wstring BrowseFolder(std::string saved_path);
 std::wstring RetrieveFileExtension(std::wstring path);
 std::string ConvertWStringToString(std::wstring str_obj);
 std::wstring ConvertStringToWString(std::string str_obj);
+void UpdateStatusBar();
 
 void UpdateProject(std::string path);
 std::string ProjectDateFormat();
@@ -352,8 +353,11 @@ LRESULT __stdcall Application::WndProc(HWND w_Handle, UINT Msg, WPARAM wParam, L
 				::ShowHideControl(bCheckView_ShowToolBar, ID_VIEW_SHOW_TOOLBAR, w_ToolBar);
 				break;
 			case ID_VIEW_SHOW_STATUSBAR:
+			{
 				::ShowHideControl(bCheckView_ShowStatusBar, ID_VIEW_SHOW_STATUSBAR, w_StatusBar);
+				UpdateStatusBar();
 				break;
+			}
 			case ID_VIEW_SHOW_TITLE_LIST:
 				::ShowHideControl(bCheckView_ShowTitleList, ID_VIEW_SHOW_TITLE_LIST, w_MainTitleList);
 				break;
@@ -1303,27 +1307,6 @@ std::pair<int, int> Application::GetWindowPosition() const noexcept
 	return std::pair<int, int>(GetWindowTransform().X, GetWindowTransform().Y);
 }
 
-void Application::RunMessageLoop()
-{
-	MSG Msg = { };
-
-	while (GetMessageA(&Msg, nullptr, 0, 0) > 0)
-	{
-		if (LV_GetSelectedItemCount(w_MainTitleList) < 1)
-			Runtime_SelectedSubtitleText = L"No subtitle selected.";
-		else
-		{
-			bRuntime_SubtitleSelected = true;
-			SubtitleLaboratory::SubtitleContainer title_obj = ::subtitles_deque[LV_GetSelectedItemIndex(w_MainTitleList)];
-			::Runtime_SelectedSubtitleText = title_obj.lpstrText;
-			//UpdateWindow(w_SubtitleReview);
-		}
-		TranslateMessage(&Msg);
-		DispatchMessageA(&Msg);
-	}
-	return;
-}
-
 void InitUI(HWND w_Handle, HINSTANCE w_Inst)
 {
 	DWORD defWndStyle = (WS_VISIBLE | WS_CHILD);
@@ -1356,9 +1339,8 @@ void InitUI(HWND w_Handle, HINSTANCE w_Inst)
 		w_Handle, ID(IDC_STATUS_BAR), w_Inst, nullptr
 	);
 
-	SetupStatusBar(w_StatusBar);
-	SendMessageA(w_StatusBar, SB_SETTEXTA, 0u, reinterpret_cast<LPARAM>("No project loaded."));
-	SendMessageA(w_StatusBar, SB_SETTEXTA, 1u, reinterpret_cast<LPARAM>("No subtitle loaded."));
+	::SetupStatusBar(w_StatusBar);
+	::UpdateStatusBar();
 
 	w_ToolBar = CreateWindowExA(
 		0, TOOLBARCLASSNAMEA, nullptr,
@@ -1366,7 +1348,7 @@ void InitUI(HWND w_Handle, HINSTANCE w_Inst)
 		0, 0, 0, 0,
 		w_Handle, ID(IDC_TOOL_BAR), w_Inst, nullptr
 	);
-	SetupToolbar(w_ToolBar);
+	::SetupToolbar(w_ToolBar);
 
 	w_AddTitlePanel = CreateWindow(
 		WC_STATIC, nullptr,
@@ -2360,6 +2342,26 @@ std::wstring ConvertStringToWString(std::string str_obj)
 	return result_str;
 }
 
+void UpdateStatusBar()
+{
+	if (::bRuntime_ProjectLoaded)
+	{
+		SendMessage(w_StatusBar, SB_SETTEXTA, 0u, reinterpret_cast<LPARAM>(Runtime_LoadedProject.projectPath));
+		SendMessage(w_StatusBar, SB_SETTEXTW, 1u, reinterpret_cast<LPARAM>(current_opened_subtitle_path.c_str()));
+	}
+	else if (::bRuntime_SubtitleFileOpened && !::bRuntime_ProjectLoaded)
+	{
+		SendMessage(w_StatusBar, SB_SETTEXTA, 0u, reinterpret_cast<LPARAM>("No project loaded."));
+		SendMessage(w_StatusBar, SB_SETTEXTW, 1u, reinterpret_cast<LPARAM>(current_opened_subtitle_path.c_str()));
+	}
+	else
+	{
+		SendMessage(w_StatusBar, SB_SETTEXTA, 0u, reinterpret_cast<LPARAM>("No project loaded."));
+		SendMessage(w_StatusBar, SB_SETTEXTA, 1u, reinterpret_cast<LPARAM>("No subtitle loaded."));
+	}
+	return;
+}
+
 void UpdateProject(std::string path)
 {
 	std::ifstream file;
@@ -2401,8 +2403,44 @@ void CloseProject()
 		for (int i = 0; i < items_num; ++i)
 			SendMessage(w_MainTitleList, LVM_DELETEALLITEMS, static_cast<WPARAM>(i), 0u);
 
-		SendMessageA(w_StatusBar, SB_SETTEXTA, 0u, reinterpret_cast<LPARAM>("No project loaded."));
-		SendMessageA(w_StatusBar, SB_SETTEXTA, 1u, reinterpret_cast<LPARAM>("No subtitle loaded."));
+		UpdateStatusBar();
+	}
+	return;
+}
+
+void Application::RunMessageLoop()
+{
+	MSG Msg = { };
+
+	while (GetMessageA(&Msg, nullptr, 0, 0) > 0)
+	{
+		if (!::bRuntime_ProjectLoaded)
+		{
+			EnableMenuItem(GetMenu(GetParent(w_MainTitleList)), ID_FILE_CLOSEPROJECT, TRUE);
+			EnableMenuItem(GetMenu(GetParent(w_MainTitleList)), ID_FILE_SAVEPROJECT, TRUE);
+		}
+		else
+		{
+			EnableMenuItem(GetMenu(GetParent(w_MainTitleList)), ID_FILE_CLOSEPROJECT, FALSE);
+			EnableMenuItem(GetMenu(GetParent(w_MainTitleList)), ID_FILE_SAVEPROJECT, FALSE);
+		}
+
+		if (!::bRuntime_SubtitleFileOpened && ::subtitles_deque.size() < 1ull)
+			EnableMenuItem(GetMenu(GetParent(w_MainTitleList)), ID_FILE_SAVESUBTITLE, TRUE);
+		else
+			EnableMenuItem(GetMenu(GetParent(w_MainTitleList)), ID_FILE_SAVESUBTITLE, FALSE);
+
+		if (LV_GetSelectedItemCount(w_MainTitleList) < 1)
+			Runtime_SelectedSubtitleText = L"No subtitle selected.";
+		else
+		{
+			bRuntime_SubtitleSelected = true;
+			SubtitleLaboratory::SubtitleContainer title_obj = ::subtitles_deque[LV_GetSelectedItemIndex(w_MainTitleList)];
+			::Runtime_SelectedSubtitleText = title_obj.lpstrText;
+			//UpdateWindow(w_SubtitleReview);
+		}
+		TranslateMessage(&Msg);
+		DispatchMessageA(&Msg);
 	}
 	return;
 }
