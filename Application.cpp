@@ -73,6 +73,7 @@ std::wstring RetrieveFileExtension(std::wstring path);
 std::string ConvertWStringToString(std::wstring str_obj);
 std::wstring ConvertStringToWString(std::string str_obj);
 void UpdateStatusBar();
+void PlayErrorSound();
 
 void UpdateProject(std::string path);
 std::string ProjectDateFormat();
@@ -938,6 +939,21 @@ LRESULT __stdcall Application::DlgProc_ErrorReport(HWND w_Dlg, UINT Msg, WPARAM 
 	{
 		case WM_INITDIALOG:
 		{
+			RECT wRect;
+			GetWindowRect(w_Dlg, &wRect);
+
+			RECT wcRect;
+			GetWindowRect(GetParent(w_Dlg), &wcRect);
+			
+			MoveWindow(
+				w_Dlg, 
+				(wcRect.right - wRect.left) / 2 - (wRect.right - wRect.left) / 2, 
+				(wcRect.bottom - wRect.top) / 2 - (wRect.bottom - wRect.top) / 2,
+				wRect.right - wRect.left, 
+				wRect.bottom - wRect.top, 
+				TRUE
+			);
+
 			std::vector<const wchar_t*> cols{ L"Line", L"Title", L"Error Info" };
 			LV_InsertColumns(GetDlgItem(w_Dlg, IDC_LIST_ERRORS_INFO), cols, &p_FixSizeForErrorList);
 			SetWindowText(GetDlgItem(w_Dlg, IDC_STATIC_ERROR_REPORT), ::Runtime_LastSubtitleError.c_str());
@@ -1751,7 +1767,9 @@ bool AddTitle(HWND w_lvHandle, SubtitleLaboratory::SubtitleContainer cnt)
 {
 	if (!::IsTimerBeginEndValid(cnt.time_begin, cnt.time_end))
 	{
+		std::thread snd_fnc(PlayErrorSound);
 		DLG_DISPLAY_ERROR(GetParent(w_lvHandle))
+		snd_fnc.join();
 		return false;
 	}
 
@@ -1883,17 +1901,17 @@ bool IsTimerBeginEndValid(SubtitleLaboratory::SubRipTimer begin, SubtitleLaborat
 	// Check if values are valid per SubRipTimer
 	if (!IsTimerValid(begin) || !IsTimerValid(end))
 	{
-		::Runtime_LastSubtitleError = L"Timers are invalid.";
+		::Runtime_LastSubtitleError = L"ERROR: Timers are invalid.";
 		return false;
 	}
 	if (begin_time_ms > end_time_ms)
 	{
-		::Runtime_LastSubtitleError = L"Start time is greater than end time.";
+		::Runtime_LastSubtitleError = L"ERROR: Start time is greater than end time.";
 		return false;
 	}
 	if (begin_time_ms == end_time_ms)
 	{
-		::Runtime_LastSubtitleError = L"Timers are equal.";
+		::Runtime_LastSubtitleError = L"ERROR: Timers are equal.";
 		return false;
 	}
 
@@ -2376,6 +2394,12 @@ void UpdateStatusBar()
 	return;
 }
 
+void PlayErrorSound()
+{
+	PlaySoundA("MouseClick", NULL, SND_SYNC);
+	return;
+}
+
 void UpdateProject(std::string path)
 {
 	std::ifstream file;
@@ -2453,7 +2477,6 @@ void Application::RunMessageLoop()
 			bRuntime_SubtitleSelected = true;
 			SubtitleLaboratory::SubtitleContainer title_obj = ::subtitles_deque[LV_GetSelectedItemIndex(w_MainTitleList)];
 			::Runtime_SelectedSubtitleText = title_obj.lpstrText;
-			//UpdateWindow(w_SubtitleReview);
 		}
 		TranslateMessage(&Msg);
 		DispatchMessageA(&Msg);

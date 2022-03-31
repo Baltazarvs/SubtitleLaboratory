@@ -20,9 +20,12 @@
 #include <type_traits>
 #include <locale>
 #include <codecvt>
+#include <mmsystem.h>
+#include <thread>
 
 #pragma warning(disable: 4996)
 #pragma comment(lib, "comctl32.lib")
+#pragma comment(lib, "Winmm.lib")
 #pragma comment(linker,"\"/manifestdependency:type='win32' \
 name='Microsoft.Windows.Common-Controls' version='6.0.0.0' \
 processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
